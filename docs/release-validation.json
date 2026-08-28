@@ -1,0 +1,31 @@
+{
+  "date": "2026-08-28",
+  "python": "3.12.13",
+  "platform": "Darwin",
+  "architecture": "arm64",
+  "device": "cpu",
+  "dependencies": {
+    "torch": "2.13.0",
+    "numpy": "2.5.2",
+    "pandas": "3.0.5",
+    "matplotlib": "3.11.1",
+    "networkx": "3.6.1",
+    "tqdm": "4.70.0",
+    "pytest": "9.1.1"
+  },
+  "checks": {
+    "original_python_files_parsed": 14,
+    "cli_help_entry_points": 4,
+    "quick_training_exit_code": 0,
+    "local_package_file_hashes": 131,
+    "public_original_source_hashes": 15,
+    "pytest_with_local_dataset": 8,
+    "pytest_without_dataset": {
+      "passed": 3,
+      "skipped": 5
+    }
+  },
+  "scope": "Software functionality only; full manuscript experiments were not reproduced.",
+  "public_release_scope": "Paper, original Python source, documentation, dependencies, and tests only. No processed data, historical logs, or model weights.",
+  "hosted_ci": "Not enabled; a workflow template is provided but has not been run on GitHub."
+}

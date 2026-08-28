@@ -1,0 +1,80 @@
+{
+  "description": "SHA-256 hashes of original source files included in the public release. Datasets, checkpoints, and experiment logs are retained locally and are not redistributed in this repository.",
+  "files": [
+    {
+      "path": "run_ablations.py",
+      "sha256": "8c4030090d7340baac0f3d2f9354fe112edf488b15b8a5606665ea54bf988b19",
+      "bytes": 32764
+    },
+    {
+      "path": "run_baselines.py",
+      "sha256": "d8d3779e2ed5c6e43080709fc1d4f66bcac79eaa36ca635d1d11439f45a7924c",
+      "bytes": 4047
+    },
+    {
+      "path": "train_ppo.py",
+      "sha256": "e4a64ca9215bc3e45129c39aae15e69c01130329b354c30e8af9242834346c50",
+      "bytes": 6624
+    },
+    {
+      "path": "docs/original-source-readme.md",
+      "sha256": "a1d71b8900ba2796bf7496319cf74d5502db4fba2d8f5887b07eddbc1feb756e",
+      "bytes": 2896
+    },
+    {
+      "path": "plot_results.py",
+      "sha256": "083e6fdadd90331f569a7ca03ebdd7e84ea2025aef323e4fd50dbb906249fb0b",
+      "bytes": 18314
+    },
+    {
+      "path": "cecoppo/experiment_utils.py",
+      "sha256": "8bf2f4219cb8beca34188aa04117a930ddb3ccb116dbd708f979a9a56fe0277b",
+      "bytes": 114343
+    },
+    {
+      "path": "cecoppo/baselines.py",
+      "sha256": "89d5c83526251a6f618aaca4cc223e2bf3b355b5b5c45670c69f86a34998e063",
+      "bytes": 21668
+    },
+    {
+      "path": "cecoppo/config.py",
+      "sha256": "01c813cb197e00d5c6aed032a4c1dd8b403631f910cd953596df7ffcee751c83",
+      "bytes": 7017
+    },
+    {
+      "path": "cecoppo/graph_encoder.py",
+      "sha256": "4694f832eabd0d9afedfb530267cbeb8936493a2d94acd930643caff6f3114df",
+      "bytes": 26389
+    },
+    {
+      "path": "cecoppo/__init__.py",
+      "sha256": "1f720cf8a2b064287c7b1c1fad232534c321136d3e126b8712e2dae4bae4a9d5",
+      "bytes": 101
+    },
+    {
+      "path": "cecoppo/utils.py",
+      "sha256": "497dce1f95b969470fd33bad3cdc7ff6a1a898c4186c539b245ae90fd7e1305e",
+      "bytes": 6408
+    },
+    {
+      "path": "cecoppo/env_cec_dag.py",
+      "sha256": "3056fdbc2ccddaadf163e1920ca331dbcc7e54ba05da632e3b62c79ffd3a684c",
+      "bytes": 125173
+    },
+    {
+      "path": "cecoppo/policy_refiner.py",
+      "sha256": "4de7180031e9455d28d717df8065156917aa79f89acfb16526443f577844d56b",
+      "bytes": 3528
+    },
+    {
+      "path": "cecoppo/dag_utils.py",
+      "sha256": "a65fcac7ebcf1f72c5820b7cdcd80d2aee2c1f7d1f47c04892b72de54d73427a",
+      "bytes": 5176
+    },
+    {
+      "path": "cecoppo/ppo_agent.py",
+      "sha256": "c9659a0323c6fe95fead0c0d0491808b61fd4d648169f176ce0d1ba97a021b08",
+      "bytes": 14760
+    }
+  ]
+}

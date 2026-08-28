@@ -1,0 +1,19 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.env
+.env.*
+.ipynb_checkpoints/
+.idea/
+.vscode/
+.cursor/
+.matplotlib/
+runs/
+# Research data and historical artifacts require separate publication approval.
+/new500DAG/
+/results/
+/checkpoints/
+*.log
