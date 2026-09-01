@@ -128,10 +128,6 @@ The locally supplied workload contains **500 DAGs** split into **398 training / 
 
 ## Code Release
 
-**The code was initially developed locally without a commit-by-commit version history. This repository provides a curated release of the original codebase.**
-
-Git history begins with the public release and subsequent maintenance. It does not reconstruct the earlier local development process or establish when individual research components were written.
-
 The public release preserves the supplied Python implementation. Data, checkpoints, and result files remain local and are not included in public Git history. New English documentation, dependency specifications, software checks, and a CI template make the code easier to inspect and run. A [SHA-256 manifest](docs/source-manifest.json) records the 15 original source/documentation files included here; the [original README](docs/original-source-readme.md) is retained verbatim as an archive and refers to the larger local package.
 
 ## Citation
@@ -155,3 +151,5 @@ Please credit all paper authors when referring to this work. The supplied PDF is
 No repository-wide license was included with the supplied package. This release does not assign a new license to the paper, code, or processed data. Please contact the authors about reuse and redistribution, and check the rights of any upstream data separately.
 
 For questions about this release or to report a reproducibility issue, please [open an issue](https://github.com/Ailta666508/PPO-STGNN/issues).
+
+**Note:** This project was initially developed locally. The Git repository was created when the codebase was prepared for publication, so the early development history is unavailable. Subsequent updates are tracked in this repository.
