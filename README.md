@@ -8,7 +8,7 @@
 
 **ICSINC 2026 · Accepted manuscript**
 
-[Paper](docs/paper.pdf) · [My Contributions](#contributions-by-zihan-shen) · [Quick Start](#quick-start) · [Reproducibility](docs/REPRODUCIBILITY.md) · [Citation](#citation)
+[Download Paper (PDF)](https://raw.githubusercontent.com/Ailta666508/PPO-STGNN/main/docs/paper.pdf) · [My Contributions](#contributions-by-zihan-shen) · [Quick Start](#quick-start) · [Reproducibility](docs/REPRODUCIBILITY.md) · [Citation](#citation)
 
 </div>
 
