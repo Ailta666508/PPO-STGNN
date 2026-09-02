@@ -115,7 +115,9 @@ cecoppo/
   baselines.py         # Non-learning scheduling policies
   experiment_utils.py # Behavior cloning, training, evaluation, plotting helpers
   config.py           # Environment and PPO configuration dataclasses
+  config_io.py        # Validated configuration snapshots and fingerprints
 train_ppo.py           # Main policy training and evaluation entry point
+export_experiment_config.py # Persist a resolved configuration before a run
 run_baselines.py       # FCFS / LeastLoad / HEFT / Greedy experiments
 run_ablations.py       # Architecture comparisons and component ablations
 plot_results.py        # Plotting entry point

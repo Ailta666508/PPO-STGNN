@@ -25,6 +25,18 @@ python train_ppo.py \
 
 The quick preset reduces PPO training, rollout length, episode size, and behavior cloning. Its purpose is to check the end-to-end path, not to produce a publishable score. Runtime depends on the CPU and may exceed the much smaller `pytest` checks.
 
+### Record the resolved configuration
+
+Export the complete dataclass configuration before a run so later comparisons do not depend on remembered defaults:
+
+```bash
+python export_experiment_config.py \
+  --output runs/main-seed42/config.json \
+  --seed 42 --device cpu
+```
+
+The command prints a stable 12-character configuration fingerprint. Configuration loading rejects unknown fields, so a misspelled option cannot silently fall back to a default. Store the JSON file and fingerprint with the corresponding checkpoint and metrics.
+
 ## PPO-STGNN Training and Evaluation
 
 ```bash
