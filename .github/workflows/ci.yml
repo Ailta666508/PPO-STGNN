@@ -19,7 +19,6 @@ jobs:
     timeout-minutes: 15
     env:
       MPLBACKEND: Agg
-      MPLCONFIGDIR: ${{ runner.temp }}/matplotlib
       OMP_NUM_THREADS: "1"
       MKL_NUM_THREADS: "1"
 
@@ -44,3 +43,5 @@ jobs:
 
       - name: Run synthetic smoke tests
         run: python -m pytest -q
+        env:
+          MPLCONFIGDIR: ${{ runner.temp }}/matplotlib
