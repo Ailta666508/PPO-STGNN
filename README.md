@@ -8,6 +8,8 @@
 
 **ICSINC 2026 · Accepted manuscript**
 
+[![CPU validation](https://github.com/Ailta666508/PPO-STGNN/actions/workflows/ci.yml/badge.svg)](https://github.com/Ailta666508/PPO-STGNN/actions/workflows/ci.yml)
+
 [Download Paper (PDF)](https://raw.githubusercontent.com/Ailta666508/PPO-STGNN/main/docs/paper.pdf) · [My Contributions](#contributions-by-zihan-shen) · [Quick Start](#quick-start) · [Reproducibility](docs/REPRODUCIBILITY.md) · [Citation](#citation)
 
 </div>
@@ -88,7 +90,7 @@ python -m pytest -q
 
 Without external data, the suite runs three synthetic-observation tests for model action masking and a small PPO update, and explicitly skips five data-dependent checks. With a local dataset, it also checks DAG validity, split separation, and baseline environment interaction. **Passing these checks does not reproduce the paper's benchmark results.**
 
-Release preparation included **8 CPU tests with the local dataset** and a small end-to-end training/evaluation run on macOS arm64. See the [validation record](docs/release-validation.json) for the tested versions and scope. A [GitHub Actions template](docs/ci-smoke.example.yml) is supplied for future setup; hosted CI is not enabled in this release.
+Release preparation included **8 CPU tests with the local dataset** and a small end-to-end training/evaluation run on macOS arm64. See the [validation record](docs/release-validation.json) for the tested versions and scope. [GitHub Actions](.github/workflows/ci.yml) now checks source integrity and the data-free CPU smoke suite on every push and pull request.
 
 ### 3. Run a small training experiment
 

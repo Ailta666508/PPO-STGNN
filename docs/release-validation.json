@@ -27,5 +27,5 @@
   },
   "scope": "Software functionality only; full manuscript experiments were not reproduced.",
   "public_release_scope": "Paper, original Python source, documentation, dependencies, and tests only. No processed data, historical logs, or model weights.",
-  "hosted_ci": "Not enabled; a workflow template is provided but has not been run on GitHub."
+  "hosted_ci": "GitHub Actions validates source integrity and the data-free Python 3.12 CPU smoke suite on pushes and pull requests."
 }
