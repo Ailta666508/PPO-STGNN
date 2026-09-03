@@ -136,3 +136,38 @@ def test_encoder_masking_and_ppo_update(encoder):
     after = list(agent.model.parameters())
     assert all(torch.isfinite(parameter).all() for parameter in after)
     assert any(not torch.equal(old, new) for old, new in zip(before, after))
+
+
+@pytest.mark.parametrize("encoder", ["stgnn", "static_gnn", "mlp"])
+def test_checkpoint_round_trip_restores_policy(tmp_path, encoder):
+    """A saved checkpoint must recover the exact data-free policy output."""
+
+    torch.set_num_threads(1)
+    torch.manual_seed(42)
+    np.random.seed(42)
+    obs = synthetic_observation()
+    config = PPOConfig(train_iters=1, minibatch_size=8, hidden_dim=32)
+    agent = PPOAgent(
+        obs,
+        len(obs["action_mask"]),
+        config.hidden_dim,
+        config,
+        encoder_type=encoder,
+    )
+    expected, _ = agent.action_distribution(obs)
+    checkpoint_path = tmp_path / f"{encoder}.pt"
+
+    agent.save(str(checkpoint_path))
+    checkpoint = torch.load(checkpoint_path, map_location="cpu")
+    assert checkpoint["encoder_type"] == encoder
+    assert set(checkpoint) == {"model", "encoder_type"}
+
+    with torch.no_grad():
+        for parameter in agent.model.parameters():
+            parameter.zero_()
+    changed, _ = agent.action_distribution(obs)
+    assert not np.allclose(changed, expected, atol=1e-7)
+
+    agent.load(str(checkpoint_path))
+    restored, _ = agent.action_distribution(obs)
+    np.testing.assert_allclose(restored, expected, rtol=0.0, atol=0.0)
