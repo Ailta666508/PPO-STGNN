@@ -88,7 +88,7 @@ python scripts/verify_source.py
 python -m pytest -q
 ```
 
-Without external data, the suite runs six synthetic-observation tests for model action masking, a small PPO update, and checkpoint round trips across all three encoders; it explicitly skips five data-dependent checks. With a local dataset, it also checks DAG validity, split separation, and baseline environment interaction. **Passing these checks does not reproduce the paper's benchmark results.**
+Without external data, the suite runs six synthetic-observation tests for model action masking, a small PPO update, and checkpoint round trips across all three encoders, plus four unit tests for deterministic seeding and multi-objective reward helpers. It explicitly skips five data-dependent checks. With a local dataset, it also checks DAG validity, split separation, and baseline environment interaction. **Passing these checks does not reproduce the paper's benchmark results.**
 
 Release preparation included **8 CPU tests with the local dataset** and a small end-to-end training/evaluation run on macOS arm64. See the [validation record](docs/release-validation.json) for the tested versions and scope. [GitHub Actions](.github/workflows/ci.yml) now checks source integrity and the data-free CPU smoke suite on every push and pull request.
 
