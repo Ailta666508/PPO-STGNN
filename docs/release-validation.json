@@ -1,5 +1,5 @@
 {
-  "date": "2026-08-28",
+  "date": "2026-09-04",
   "python": "3.12.13",
   "platform": "Darwin",
   "architecture": "arm64",
@@ -21,11 +21,19 @@
     "public_original_source_hashes": 15,
     "pytest_with_local_dataset": 8,
     "pytest_without_dataset": {
-      "passed": 3,
+      "passed": 13,
       "skipped": 5
+    },
+    "arxiv_id": "2609.03503",
+    "arxiv_pdf_sha256": "95da53a10ceeeee60272388cf80e9346543371772ebf86ff4d0f3541f856ea67",
+    "paper_figure_sha256": {
+      "figure-1-system-model.jpg": "65623fee4b2498d1cee9ba2153bbbd58caa0f3ab224fd251b2089c75fd564d9b",
+      "figure-2-ppo-stgnn-framework.jpg": "8e7b942e34a9dd992f193be8d9ccbdbb14978be0295c0802254655f9cc9e8a4d",
+      "figure-3-baseline-comparison.png": "f89e00698ec5b82ac5467f6e5c613ee79b1f4f1b6a2f19bc9b61e994bb48c5f2",
+      "figure-4-encoder-comparison.png": "e53f2def37684e02734483b4db5169d19e6850906fe9f8f7deb6f82e46e89090"
     }
   },
   "scope": "Software functionality only; full manuscript experiments were not reproduced.",
-  "public_release_scope": "Paper, original Python source, documentation, dependencies, and tests only. No processed data, historical logs, or model weights.",
+  "public_release_scope": "arXiv-linked paper, four embedded paper figures, original Python source, documentation, dependencies, and tests only. No processed data, historical logs, or model weights.",
   "hosted_ci": "GitHub Actions validates source integrity and the data-free Python 3.12 CPU smoke suite on pushes and pull requests."
 }

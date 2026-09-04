@@ -8,9 +8,10 @@
 
 **ICSINC 2026 · Accepted manuscript**
 
+[![arXiv](https://img.shields.io/badge/arXiv-2609.03503-b31b1b.svg)](https://arxiv.org/abs/2609.03503)
 [![CPU validation](https://github.com/Ailta666508/PPO-STGNN/actions/workflows/ci.yml/badge.svg)](https://github.com/Ailta666508/PPO-STGNN/actions/workflows/ci.yml)
 
-[Download Paper (PDF)](https://raw.githubusercontent.com/Ailta666508/PPO-STGNN/main/docs/paper.pdf) · [My Contributions](#contributions-by-zihan-shen) · [Quick Start](#quick-start) · [Reproducibility](docs/REPRODUCIBILITY.md) · [Citation](#citation)
+[Paper](https://arxiv.org/abs/2609.03503) · [Overview](#overview) · [System Model](#system-model) · [Method](#method) · [Results](#experimental-results) · [Author Contributions](#author-contributions) · [Quick Start](#quick-start) · [Citation](#citation)
 
 </div>
 
@@ -18,52 +19,80 @@
 
 Scheduling a workflow across cloud servers, edge nodes, and end devices requires decisions that account for both **task dependencies** and **changing resource availability**. A locally fast assignment can still create a downstream bottleneck or concentrate work on a small set of machines.
 
-PPO-STGNN studies this problem through graph representation learning and reinforcement learning. It combines resource and task representations, a constrained task–node action space, and multi-objective rewards, with heuristic behavior cloning to initialize a PPO scheduling policy.
+**PPO-STGNN** combines spatio-temporal graph representation learning with proximal policy optimization for heterogeneous DAG scheduling. The policy jointly reasons about the resource topology, the task graph, feasible task-node assignments, and multiple scheduling objectives; multi-teacher behavior cloning provides a stronger initialization than learning the joint action space from scratch.
+
+| Topology-aware state | Constrained policy | Multi-objective learning |
+| :--- | :--- | :--- |
+| Encodes the physical resource graph and logical DAG dependencies. | Masks infeasible task-node assignments before PPO action selection. | Optimizes makespan, SLR, and CPU/memory load balance. |
+
+> **Artifact scope.** The repository contains the paper-aligned source release, deterministic CPU checks, and engineering documentation. Processed workloads, checkpoints, and historical experiment logs are not redistributed. The figures below are the original figures from the [arXiv paper](https://arxiv.org/abs/2609.03503), not newly reproduced plots. See the [reproducibility notes](docs/REPRODUCIBILITY.md) for implementation and artifact boundaries.
+
+## System Model
 
 <p align="center">
-  <img src="docs/assets/paper-framework.jpg" alt="Framework from the manuscript: resource and task graph representations, action masking, heuristic pretraining, and PPO scheduling." width="900">
-  <br>
-  <em>Framework reproduced from the supplied manuscript. See the implementation notes below for differences in this code release.</em>
+  <a href="docs/assets/figure-1-system-model.jpg">
+    <img src="docs/assets/figure-1-system-model.jpg" alt="Cloud-edge-end hierarchical computing scenario" width="900">
+  </a>
 </p>
 
-### Research highlights
+<p align="center"><em>Figure 1. Cloud-edge-end hierarchical computing scenario with heterogeneous cloud, edge, and end resources.</em></p>
 
-- **Resource and workflow modeling.** Jointly represent heterogeneous computing resources and DAG dependencies to inform scheduling decisions.
-- **Constrained joint actions.** Select a ready task and an execution node while masking infeasible assignments according to resource and topology constraints.
-- **Multiple scheduling objectives.** Account for completion time, scheduling length ratio (SLR), and CPU/memory load balance, rather than optimizing a single local execution cost.
-- **Heuristic initialization.** Use demonstrations from scheduling heuristics for behavior cloning before PPO optimization, addressing the difficulty of learning in a large action space from scratch.
-- **Comparative evaluation.** Include FCFS, LeastLoad, HEFT, and Greedy baselines, together with MLP, static graph, and temporal graph policy variants.
+End devices generate DAG workflows, edge servers provide nearby moderate-capacity execution, and cloud servers supply high-capacity processing over higher-latency links. Scheduling decisions must respect task precedence, node capacity, and communication cost across this hierarchy.
 
-> **Release scope.** This repository publishes the paper, research source, and documentation. Processed data, historical experiment logs, and model weights are not redistributed. It is not a verified reproduction of every manuscript result: the code uses temporal attention where the manuscript describes a GRU, and the locally supplied PPO summaries do not match Table 1. [Reproducibility notes](docs/REPRODUCIBILITY.md) document these differences explicitly.
+## Method
 
-## Contributions by Zihan Shen
+<p align="center">
+  <a href="docs/assets/figure-2-ppo-stgnn-framework.jpg">
+    <img src="docs/assets/figure-2-ppo-stgnn-framework.jpg" alt="Overall PPO-STGNN scheduling framework" width="900">
+  </a>
+</p>
 
-This was a collaborative research project. My contributions focused on the scheduling framework, reward formulation, heuristic pretraining, and experimental evaluation. The complete paper author list is retained above and in the citation.
+<p align="center"><em>Figure 2. Overall PPO-STGNN workflow: graph-based state encoding, PPO action selection, action refinement, environment execution, and multi-objective reward feedback.</em></p>
 
-| Area | My contribution | Relevant implementation |
+### Learning and scheduling pipeline
+
+1. **State representation.** Build task-DAG and resource-graph observations from ready tasks, dependencies, node utilization, and resource history.
+2. **Spatio-temporal encoding.** Produce node-level and graph-level embeddings that preserve structural and temporal context.
+3. **Constrained joint action.** Select a ready task and execution node while masking infeasible assignments and refining the selected action.
+4. **Multi-objective optimization.** Train the actor-critic policy with rewards derived from makespan, scheduling length ratio, and CPU/memory balance.
+5. **Behavior-cloning initialization.** Pretrain from multiple heuristic teachers to reduce policy cold-start in the joint scheduling action space.
+
+## Experimental Results
+
+### Comparison with scheduling baselines
+
+<p align="center">
+  <a href="docs/assets/figure-3-baseline-comparison.png">
+    <img src="docs/assets/figure-3-baseline-comparison.png" alt="PPO-STGNN comparison with FCFS, LeastLoad, HEFT, and Greedy" width="100%">
+  </a>
+</p>
+
+<p align="center"><em>Figure 3. Comparison with FCFS, LeastLoad, HEFT, and Greedy on makespan, SLR, and load balance; lower is better for all three metrics.</em></p>
+
+The paper reports the lowest makespan (**124.8 s**) and load-balance score (**127.9**) for PPO-STGNN. HEFT records the lowest SLR (**7.8**), making the trade-off visible rather than collapsing all objectives into a single ranking.
+
+### Representation ablation
+
+<p align="center">
+  <a href="docs/assets/figure-4-encoder-comparison.png">
+    <img src="docs/assets/figure-4-encoder-comparison.png" alt="Validation comparison of MLP-PPO, PPO-StaticGNN, and PPO-STGNN" width="100%">
+  </a>
+</p>
+
+<p align="center"><em>Figure 4. Validation trends for MLP-PPO, PPO-StaticGNN, and PPO-STGNN across makespan, SLR, and load balance.</em></p>
+
+The comparison isolates the value of graph structure and temporal context: MLP-PPO omits topology, PPO-StaticGNN introduces structural information, and PPO-STGNN additionally models temporal resource dynamics. These are results reported in the paper; the public CI validates software behavior rather than reproducing the benchmark curves.
+
+## Author Contributions
+
+This was a collaborative research project, and all paper authors are credited above. **Zihan Shen** contributed to the scheduling system, objective design, policy initialization, and experimental evaluation, and maintains this public code release.
+
+| Contribution area | Work completed | Repository entry points |
 | :--- | :--- | :--- |
-| Scheduling framework | Developed the PPO-STGNN scheduling framework to model task dependencies, resource states, and heterogeneous computing constraints. | [Simulator](cecoppo/env_cec_dag.py), [graph encoders](cecoppo/graph_encoder.py), [PPO agent](cecoppo/ppo_agent.py) |
-| Reward formulation | Formulated multi-objective rewards for completion time, scheduling efficiency, CPU/memory balance, and resource utilization. | [Environment and rewards](cecoppo/env_cec_dag.py), [configuration](cecoppo/config.py) |
-| Behavior cloning | Applied heuristic behavior cloning pretraining to mitigate policy cold-start in the joint scheduling action space. | [Teacher collection and training](cecoppo/experiment_utils.py), [training entry point](train_ppo.py) |
-| Benchmarking | Evaluated the approach against FCFS, LeastLoad, HEFT, and Greedy in scheduling and resource allocation experiments. | [Baseline policies](cecoppo/baselines.py), [baseline runner](run_baselines.py), [experiment variants](run_ablations.py) |
-
-These links locate the relevant functionality; they do not imply exclusive authorship of every linked file. The contribution summary describes my role in the project, while the reproducibility notes describe what can currently be established from this release.
-
-## Results Reported in the Paper
-
-The following values are transcribed from **Table 1 of the manuscript**. Lower is better for all three metrics. These are reported paper results, not measurements newly reproduced from this repository.
-
-| Method | Makespan ↓ | SLR ↓ | Load balance ↓ |
-| :--- | ---: | ---: | ---: |
-| FCFS | 153.0 | 9.6 | 194.6 |
-| LeastLoad | 134.9 | 10.7 | 174.4 |
-| HEFT | 133.7 | **7.8** | 162.5 |
-| Greedy | 130.5 | 9.5 | 182.3 |
-| **PPO-STGNN** | **124.8** | 11.6 | **127.9** |
-
-Relative to HEFT, the reported PPO-STGNN result reduces makespan by approximately **6.7%** and the load balance metric by **21.3%**. The tradeoff is a higher SLR: **HEFT performs best on SLR** in this table. No claim of statistical significance is made from these aggregate values.
-
-The locally supplied baseline CSV agrees with the rounded baseline rows above. The locally supplied PPO CSVs contain different values; see the [result crosswalk](docs/REPRODUCIBILITY.md#paper-and-artifact-results). Those historical CSV files are not part of the public repository.
+| Scheduling system | Developed task-dependency and heterogeneous-resource modeling for constrained DAG scheduling. | [Simulator](cecoppo/env_cec_dag.py), [graph encoders](cecoppo/graph_encoder.py), [PPO agent](cecoppo/ppo_agent.py) |
+| Objective design | Formulated rewards for completion time, scheduling efficiency, CPU/memory balance, and utilization. | [Environment and rewards](cecoppo/env_cec_dag.py), [configuration](cecoppo/config.py) |
+| Policy initialization | Applied multi-teacher behavior cloning to mitigate cold-start in the joint action space. | [Teacher collection and training](cecoppo/experiment_utils.py), [training entry point](train_ppo.py) |
+| Experimental evaluation | Benchmarked against FCFS, LeastLoad, HEFT, and Greedy and compared policy encoders. | [Baseline policies](cecoppo/baselines.py), [baseline runner](run_baselines.py), [ablations](run_ablations.py) |
 
 ## Quick Start
 
@@ -88,15 +117,13 @@ python scripts/verify_source.py
 python -m pytest -q
 ```
 
-Without external data, the suite runs six synthetic-observation tests for model action masking, a small PPO update, and checkpoint round trips across all three encoders, plus four unit tests for deterministic seeding and multi-objective reward helpers. It explicitly skips five data-dependent checks. With a local dataset, it also checks DAG validity, split separation, and baseline environment interaction. **Passing these checks does not reproduce the paper's benchmark results.**
+Without external data, the suite runs **13 deterministic tests** covering experiment-configuration snapshots, reproducible seeding, objective normalization, action masking, small PPO updates, and checkpoint round trips across all three encoders. Five dataset-dependent checks are skipped. With a local dataset, the suite also checks DAG validity, split separation, and baseline environment interaction. Passing these checks validates software behavior; it does not reproduce the paper's benchmark results.
 
-Release preparation included **8 CPU tests with the local dataset** and a small end-to-end training/evaluation run on macOS arm64. See the [validation record](docs/release-validation.json) for the tested versions and scope. [GitHub Actions](.github/workflows/ci.yml) now checks source integrity and the data-free CPU smoke suite on every push and pull request.
+Release preparation also included **8 CPU tests with the local dataset** and a small end-to-end training/evaluation run on macOS arm64. See the [validation record](docs/release-validation.json) for the tested versions and scope. [GitHub Actions](.github/workflows/ci.yml) checks source integrity and the data-free CPU suite on every push and pull request.
 
 ### 3. Run a small training experiment
 
 Training requires a separately obtained copy of the processed workload; no public download is provided in this release. If you have authorized access, place it in `./new500DAG` or pass its location with `--data-dir`. See [Data Access](docs/DATA_AND_IMPLEMENTATION.md#data-access).
-
-From the repository root, after providing the dataset:
 
 ```bash
 python train_ppo.py \
@@ -105,14 +132,14 @@ python train_ppo.py \
   --quick --device cpu --seed 42
 ```
 
-`--quick` reduces the workload and training budget for a functional check. It is not a paper evaluation setting. New outputs go to `runs/quick/`. Data, logs, and weights are excluded from Git by default. For baseline evaluation, full training, and controlled architecture comparisons, see [Experiments](docs/EXPERIMENTS.md).
+`--quick` reduces the workload and training budget for a functional check. It is not a paper evaluation setting. New outputs go to `runs/quick/`. For baseline evaluation, full training, and controlled architecture comparisons, see [Experiments](docs/EXPERIMENTS.md).
 
 ## Repository Guide
 
 ```text
 cecoppo/
-  env_cec_dag.py       # Cloud–edge–end simulator, observations, masks, rewards
-  graph_encoder.py     # Temporal graph, static graph, and MLP actor–critic models
+  env_cec_dag.py       # Cloud-edge-end simulator, observations, masks, rewards
+  graph_encoder.py     # Temporal graph, static graph, and MLP actor-critic models
   ppo_agent.py         # Rollouts, GAE, clipped PPO updates, checkpoint I/O
   baselines.py         # Non-learning scheduling policies
   experiment_utils.py # Behavior cloning, training, evaluation, plotting helpers
@@ -123,30 +150,34 @@ export_experiment_config.py # Persist a resolved configuration before a run
 run_baselines.py       # FCFS / LeastLoad / HEFT / Greedy experiments
 run_ablations.py       # Architecture comparisons and component ablations
 plot_results.py        # Plotting entry point
-docs/                  # Manuscript, provenance, implementation and run notes
-tests/                 # Small CPU software checks added for this release
-scripts/               # Source-integrity verification
+docs/                  # Paper, provenance, implementation and run notes
+tests/                 # Deterministic CPU software checks
+scripts/               # Source and paper-asset integrity verification
 ```
 
 The locally supplied workload contains **500 DAGs** split into **398 training / 48 validation / 54 test** workflows. Its resource pool contains **90 nodes**; the default experiment configuration selects **38**. The processed dataset and the simulator's runtime configuration are distinct. See [Data and Implementation](docs/DATA_AND_IMPLEMENTATION.md).
 
-## Code Release
+## Reproducibility
 
-The public release preserves the supplied Python implementation. Data, checkpoints, and result files remain local and are not included in public Git history. New English documentation, dependency specifications, software checks, and a CI template make the code easier to inspect and run. A [SHA-256 manifest](docs/source-manifest.json) records the 15 original source/documentation files included here; the [original README](docs/original-source-readme.md) is retained verbatim as an archive and refers to the larger local package.
+- [Reproducibility notes](docs/REPRODUCIBILITY.md) separate paper claims, released code, and historical local artifacts.
+- [Experiment guide](docs/EXPERIMENTS.md) documents baseline, training, and ablation entry points.
+- [Data and implementation](docs/DATA_AND_IMPLEMENTATION.md) records workload access and simulator assumptions.
+- [Release validation](docs/release-validation.json) records the tested environment and verification scope.
 
 ## Citation
 
-Please credit all paper authors when referring to this work. The supplied PDF is an accepted manuscript; no DOI or final proceedings pagination is asserted here.
-
 ```bibtex
 @misc{qi2026ppostgnn,
-  title  = {PPO-STGNN: A Proximal Policy Optimization Approach with
-            Spatio-Temporal Graph Neural Networks for DAG Task Scheduling
-            in Cloud-Edge-End Computing},
-  author = {Qi, Yangshuo and Wang, Chenwei and Shen, Zihan and Sun, Songlin},
-  year   = {2026},
-  note   = {Accepted at ICSINC 2026},
-  url    = {https://github.com/Ailta666508/PPO-STGNN}
+  title         = {PPO-STGNN: A Proximal Policy Optimization Approach with
+                   Spatio-Temporal Graph Neural Networks for DAG Task Scheduling
+                   in Cloud-Edge-End Computing},
+  author        = {Qi, Yangshuo and Wang, Chenwei and Shen, Zihan and Sun, Songlin},
+  year          = {2026},
+  eprint        = {2609.03503},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.AI},
+  url           = {https://arxiv.org/abs/2609.03503},
+  note          = {Accepted at ICSINC 2026}
 }
 ```
 

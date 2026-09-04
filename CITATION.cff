@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-message: "Please cite the accompanying paper using the BibTeX entry in README.md and credit all four authors."
+message: "Please cite the accompanying arXiv paper and credit all four authors."
 type: software
 title: "PPO-STGNN: Curated Research Code Release"
 authors:
@@ -14,3 +14,21 @@ authors:
 repository-code: "https://github.com/Ailta666508/PPO-STGNN"
 url: "https://github.com/Ailta666508/PPO-STGNN"
 date-released: 2026-08-28
+identifiers:
+  - type: other
+    value: "arXiv:2609.03503"
+    description: "arXiv identifier for the accompanying paper"
+preferred-citation:
+  type: article
+  title: "PPO-STGNN: A Proximal Policy Optimization Approach with Spatio-Temporal Graph Neural Networks for DAG Task Scheduling in Cloud-Edge-End Computing"
+  authors:
+    - family-names: Qi
+      given-names: Yangshuo
+    - family-names: Wang
+      given-names: Chenwei
+    - family-names: Shen
+      given-names: Zihan
+    - family-names: Sun
+      given-names: Songlin
+  year: 2026
+  url: "https://arxiv.org/abs/2609.03503"
