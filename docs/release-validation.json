@@ -1,5 +1,5 @@
 {
-  "date": "2026-09-04",
+  "date": "2026-09-05",
   "python": "3.12.13",
   "platform": "Darwin",
   "architecture": "arm64",
@@ -18,10 +18,10 @@
     "cli_help_entry_points": 4,
     "quick_training_exit_code": 0,
     "local_package_file_hashes": 131,
-    "public_original_source_hashes": 15,
+    "public_maintained_source_hashes": 15,
     "pytest_with_local_dataset": 8,
     "pytest_without_dataset": {
-      "passed": 13,
+      "passed": 14,
       "skipped": 5
     },
     "arxiv_id": "2609.03503",

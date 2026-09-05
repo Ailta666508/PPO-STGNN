@@ -45,7 +45,7 @@ def main():
 
     if errors:
         raise SystemExit("\n".join(errors))
-    print(f"Verified {len(manifest['files'])} original files; parsed {python_files} Python files.")
+    print(f"Verified {len(manifest['files'])} maintained files; parsed {python_files} Python files.")
     print(f"Verified the paper and {len(PUBLICATION_ASSET_SHA256) - 1} embedded paper figures.")
     print("This checks packaged-file integrity, not experiment reproduction or historical provenance.")
 

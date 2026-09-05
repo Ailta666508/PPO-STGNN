@@ -117,7 +117,7 @@ python scripts/verify_source.py
 python -m pytest -q
 ```
 
-Without external data, the suite runs **13 deterministic tests** covering experiment-configuration snapshots, reproducible seeding, objective normalization, action masking, small PPO updates, and checkpoint round trips across all three encoders. Five dataset-dependent checks are skipped. With a local dataset, the suite also checks DAG validity, split separation, and baseline environment interaction. Passing these checks validates software behavior; it does not reproduce the paper's benchmark results.
+Without external data, the suite runs **14 deterministic tests** covering experiment-configuration snapshots, reproducible RNG and kernel configuration, objective normalization, action masking, small PPO updates, and checkpoint round trips across all three encoders. Five dataset-dependent checks are skipped. With a local dataset, the suite also checks DAG validity, split separation, and baseline environment interaction. Passing these checks validates software behavior; it does not reproduce the paper's benchmark results.
 
 Release preparation also included **8 CPU tests with the local dataset** and a small end-to-end training/evaluation run on macOS arm64. See the [validation record](docs/release-validation.json) for the tested versions and scope. [GitHub Actions](.github/workflows/ci.yml) checks source integrity and the data-free CPU suite on every push and pull request.
 

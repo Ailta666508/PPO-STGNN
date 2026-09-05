@@ -16,14 +16,29 @@ from cecoppo.utils import (
 
 
 def test_set_seed_reproduces_python_numpy_and_torch_streams():
-    set_seed(17)
-    first = (random.random(), np.random.random(), torch.rand(3))
-    set_seed(17)
-    second = (random.random(), np.random.random(), torch.rand(3))
+    try:
+        set_seed(17)
+        first = (random.random(), np.random.random(), torch.rand(3))
+        set_seed(17)
+        second = (random.random(), np.random.random(), torch.rand(3))
 
-    assert first[0] == second[0]
-    assert first[1] == second[1]
-    torch.testing.assert_close(first[2], second[2], rtol=0.0, atol=0.0)
+        assert first[0] == second[0]
+        assert first[1] == second[1]
+        torch.testing.assert_close(first[2], second[2], rtol=0.0, atol=0.0)
+        assert torch.are_deterministic_algorithms_enabled()
+        if torch.backends.cudnn.is_available():
+            assert torch.backends.cudnn.deterministic
+            assert not torch.backends.cudnn.benchmark
+    finally:
+        set_seed(0, deterministic=False)
+
+
+def test_set_seed_can_restore_performance_oriented_backend_defaults():
+    set_seed(23, deterministic=False)
+    assert not torch.are_deterministic_algorithms_enabled()
+    if torch.backends.cudnn.is_available():
+        assert not torch.backends.cudnn.deterministic
+        assert torch.backends.cudnn.benchmark
 
 
 def test_normalized_terms_use_explicit_refs_and_clamp_negative_metrics():

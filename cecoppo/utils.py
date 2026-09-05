@@ -15,12 +15,17 @@ ROLE_TO_ID = {"end": 0, "edge": 1, "cloud": 2}
 ID_TO_ROLE = {v: k for k, v in ROLE_TO_ID.items()}
 
 
-def set_seed(seed: int) -> None:
+def set_seed(seed: int, *, deterministic: bool = True) -> None:
+    """Seed every RNG and optionally request deterministic PyTorch kernels."""
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+    torch.use_deterministic_algorithms(deterministic, warn_only=True)
+    if torch.backends.cudnn.is_available():
+        torch.backends.cudnn.deterministic = deterministic
+        torch.backends.cudnn.benchmark = not deterministic
 
 
 # Reference scales for joint makespan / SLR / load-balance (paper-style L_CPU+L_Mem).

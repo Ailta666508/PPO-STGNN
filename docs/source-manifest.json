@@ -1,5 +1,5 @@
 {
-  "description": "SHA-256 hashes of original source files included in the public release. Datasets, checkpoints, and experiment logs are retained locally and are not redistributed in this repository.",
+  "description": "SHA-256 hashes of the maintained source snapshot included in this public release. Git history preserves earlier versions; datasets, checkpoints, and experiment logs are retained locally and are not redistributed.",
   "files": [
     {
       "path": "run_ablations.py",
@@ -53,8 +53,8 @@
     },
     {
       "path": "cecoppo/utils.py",
-      "sha256": "497dce1f95b969470fd33bad3cdc7ff6a1a898c4186c539b245ae90fd7e1305e",
-      "bytes": 6408
+      "sha256": "742e36d40e1174d05ca1643c20f98169a688f542d5be5017688798df804634ed",
+      "bytes": 6750
     },
     {
       "path": "cecoppo/env_cec_dag.py",
