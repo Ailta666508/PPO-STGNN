@@ -138,6 +138,23 @@ def test_encoder_masking_and_ppo_update(encoder):
     assert any(not torch.equal(old, new) for old, new in zip(before, after))
 
 
+def test_policy_rejects_empty_and_misaligned_action_masks():
+    torch.set_num_threads(1)
+    obs = synthetic_observation()
+    config = PPOConfig(train_iters=1, minibatch_size=8, hidden_dim=32)
+    agent = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+
+    empty_mask_obs = {key: value.copy() for key, value in obs.items()}
+    empty_mask_obs["action_mask"][:] = 0
+    with pytest.raises(ValueError, match="no valid action"):
+        agent.act(empty_mask_obs, deterministic=True)
+
+    logits = torch.zeros((1, len(obs["action_mask"])), dtype=torch.float32)
+    wrong_size_mask = torch.ones((1, len(obs["action_mask"]) - 1), dtype=torch.float32)
+    with pytest.raises(ValueError, match="shape must match"):
+        agent._masked_logits(logits, wrong_size_mask)
+
+
 @pytest.mark.parametrize("encoder", ["stgnn", "static_gnn", "mlp"])
 def test_checkpoint_round_trip_restores_policy(tmp_path, encoder):
     """A saved checkpoint must recover the exact data-free policy output."""

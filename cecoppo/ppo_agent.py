@@ -191,6 +191,19 @@ class PPOAgent:
     def _stack_obs(self, obs_list: List[Dict[str, np.ndarray]]) -> Dict[str, torch.Tensor]:
         return {k: torch.tensor(np.stack([o[k] for o in obs_list]), dtype=torch.float32, device=self.device) for k in obs_list[0].keys()}
 
+    def _masked_logits(self, logits: torch.Tensor, action_mask: torch.Tensor) -> torch.Tensor:
+        """Apply an action mask while rejecting observations with no valid action."""
+        if logits.shape != action_mask.shape:
+            raise ValueError(
+                "action_mask shape must match policy logits: "
+                f"got {tuple(action_mask.shape)} and {tuple(logits.shape)}"
+            )
+        valid = action_mask > 0
+        invalid_rows = (~valid.any(dim=-1)).nonzero(as_tuple=False).flatten().tolist()
+        if invalid_rows:
+            raise ValueError(f"action_mask contains no valid action for batch rows {invalid_rows}")
+        return logits.masked_fill(~valid, torch.finfo(logits.dtype).min)
+
     def act(
         self,
         obs: Dict[str, np.ndarray],
@@ -200,7 +213,7 @@ class PPOAgent:
         batch = self._obs_to_tensors(obs)
         with torch.no_grad():
             logits, value = self.model(batch)
-            logits = logits.masked_fill(batch["action_mask"] <= 0, -1e9)
+            logits = self._masked_logits(logits, batch["action_mask"])
             dist = Categorical(logits=logits)
             if (
                 deterministic
@@ -278,7 +291,7 @@ class PPOAgent:
                 mb_idx = idxs[start : start + self.minibatch_size]
                 batch = {k: v[mb_idx] for k, v in obs_batch.items()}
                 logits, values = self.model(batch)
-                logits = logits.masked_fill(batch["action_mask"] <= 0, -1e9)
+                logits = self._masked_logits(logits, batch["action_mask"])
                 dist = Categorical(logits=logits)
                 new_log_probs = dist.log_prob(actions[mb_idx])
                 entropy = dist.entropy().mean()
@@ -315,7 +328,7 @@ class PPOAgent:
         batch = self._obs_to_tensors(obs)
         with torch.no_grad():
             logits, _ = self.model(batch)
-            logits = logits.masked_fill(batch["action_mask"] <= 0, -1e9)
+            logits = self._masked_logits(logits, batch["action_mask"])
             probs = torch.softmax(logits, dim=-1).squeeze(0).cpu().numpy()
         return probs, logits
 
