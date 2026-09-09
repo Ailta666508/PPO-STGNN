@@ -7,6 +7,7 @@ import json
 import os
 from itertools import combinations
 from pathlib import Path
+from unittest.mock import patch
 
 import networkx as nx
 import numpy as np
@@ -188,3 +189,39 @@ def test_checkpoint_round_trip_restores_policy(tmp_path, encoder):
     agent.load(str(checkpoint_path))
     restored, _ = agent.action_distribution(obs)
     np.testing.assert_allclose(restored, expected, rtol=0.0, atol=0.0)
+
+
+def test_checkpoint_save_is_atomic_when_serialization_fails(tmp_path):
+    torch.set_num_threads(1)
+    obs = synthetic_observation()
+    config = PPOConfig(train_iters=1, minibatch_size=8, hidden_dim=32)
+    agent = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+    checkpoint_path = tmp_path / "policy.pt"
+    agent.save(str(checkpoint_path))
+    original = checkpoint_path.read_bytes()
+
+    with patch("cecoppo.ppo_agent.torch.save", side_effect=RuntimeError("disk full")):
+        with pytest.raises(RuntimeError, match="Unable to save PPO checkpoint"):
+            agent.save(str(checkpoint_path))
+
+    assert checkpoint_path.read_bytes() == original
+    assert list(tmp_path.glob(".policy.pt.*.tmp")) == []
+
+
+def test_checkpoint_load_rejects_a_different_encoder(tmp_path):
+    torch.set_num_threads(1)
+    obs = synthetic_observation()
+    config = PPOConfig(train_iters=1, minibatch_size=8, hidden_dim=32)
+    source = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+    destination = PPOAgent(
+        obs,
+        len(obs["action_mask"]),
+        config.hidden_dim,
+        config,
+        encoder_type="static_gnn",
+    )
+    checkpoint_path = tmp_path / "mlp.pt"
+    source.save(str(checkpoint_path))
+
+    with pytest.raises(ValueError, match="encoder type mismatch"):
+        destination.load(str(checkpoint_path))

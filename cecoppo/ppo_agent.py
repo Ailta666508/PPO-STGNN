@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import os
+import tempfile
+from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
@@ -333,8 +337,44 @@ class PPOAgent:
         return probs, logits
 
     def save(self, path: str) -> None:
-        torch.save({"model": self.model.state_dict(), "encoder_type": self.encoder_type}, path)
+        destination = Path(path)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        temporary_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w+b",
+                dir=destination.parent,
+                prefix=f".{destination.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as stream:
+                temporary_path = Path(stream.name)
+                torch.save(
+                    {"model": self.model.state_dict(), "encoder_type": self.encoder_type},
+                    stream,
+                )
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary_path, destination)
+        except (OSError, RuntimeError) as error:
+            if temporary_path is not None:
+                try:
+                    temporary_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+            raise RuntimeError(f"Unable to save PPO checkpoint: {destination}") from error
 
     def load(self, path: str) -> None:
-        ckpt = torch.load(path, map_location=self.device)
-        self.model.load_state_dict(ckpt["model"])
+        checkpoint = torch.load(path, map_location=self.device, weights_only=True)
+        if not isinstance(checkpoint, Mapping):
+            raise ValueError("PPO checkpoint must contain a mapping")
+        encoder_type = checkpoint.get("encoder_type")
+        if encoder_type != self.encoder_type:
+            raise ValueError(
+                "PPO checkpoint encoder type mismatch: "
+                f"expected {self.encoder_type}, got {encoder_type}"
+            )
+        state_dict = checkpoint.get("model")
+        if not isinstance(state_dict, Mapping):
+            raise ValueError("PPO checkpoint is missing a model state dictionary")
+        self.model.load_state_dict(state_dict)
