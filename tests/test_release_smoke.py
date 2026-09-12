@@ -176,9 +176,17 @@ def test_checkpoint_round_trip_restores_policy(tmp_path, encoder):
     checkpoint_path = tmp_path / f"{encoder}.pt"
 
     agent.save(str(checkpoint_path))
-    checkpoint = torch.load(checkpoint_path, map_location="cpu")
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
     assert checkpoint["encoder_type"] == encoder
-    assert set(checkpoint) == {"model", "encoder_type"}
+    assert checkpoint["schema_version"] == 1
+    assert checkpoint["action_dim"] == len(obs["action_mask"])
+    assert set(checkpoint) == {
+        "schema_version",
+        "model",
+        "optimizer",
+        "encoder_type",
+        "action_dim",
+    }
 
     with torch.no_grad():
         for parameter in agent.model.parameters():
@@ -225,3 +233,43 @@ def test_checkpoint_load_rejects_a_different_encoder(tmp_path):
 
     with pytest.raises(ValueError, match="encoder type mismatch"):
         destination.load(str(checkpoint_path))
+
+
+def test_checkpoint_round_trip_restores_optimizer_state(tmp_path):
+    torch.set_num_threads(1)
+    obs = synthetic_observation()
+    config = PPOConfig(train_iters=1, minibatch_size=8, hidden_dim=32)
+    source = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+    source.optimizer.zero_grad()
+    loss = sum(parameter.square().sum() for parameter in source.model.parameters())
+    loss.backward()
+    source.optimizer.step()
+    checkpoint_path = tmp_path / "optimizer.pt"
+    source.save(str(checkpoint_path))
+
+    restored = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+    restored.load(str(checkpoint_path))
+
+    expected = source.optimizer.state_dict()
+    actual = restored.optimizer.state_dict()
+    assert actual["param_groups"] == expected["param_groups"]
+    assert actual["state"].keys() == expected["state"].keys()
+    for parameter_id, expected_state in expected["state"].items():
+        for name, expected_value in expected_state.items():
+            actual_value = actual["state"][parameter_id][name]
+            if torch.is_tensor(expected_value):
+                torch.testing.assert_close(actual_value, expected_value)
+            else:
+                assert actual_value == expected_value
+
+
+def test_checkpoint_load_rejects_an_unknown_schema(tmp_path):
+    torch.set_num_threads(1)
+    obs = synthetic_observation()
+    config = PPOConfig(train_iters=1, minibatch_size=8, hidden_dim=32)
+    agent = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+    checkpoint_path = tmp_path / "future.pt"
+    torch.save({"schema_version": 999}, checkpoint_path)
+
+    with pytest.raises(ValueError, match="Unsupported PPO checkpoint schema version"):
+        agent.load(str(checkpoint_path))

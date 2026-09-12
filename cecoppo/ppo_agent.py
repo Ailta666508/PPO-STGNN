@@ -16,6 +16,9 @@ from cecoppo.baselines import _decode_pair_action, _estimate_action_components, 
 from cecoppo.graph_encoder import ActorCriticMLP, ActorCriticStaticGNN, ActorCriticSTGNN
 
 
+CHECKPOINT_SCHEMA_VERSION = 1
+
+
 @dataclass
 class Transition:
     obs: Dict[str, np.ndarray]
@@ -350,7 +353,13 @@ class PPOAgent:
             ) as stream:
                 temporary_path = Path(stream.name)
                 torch.save(
-                    {"model": self.model.state_dict(), "encoder_type": self.encoder_type},
+                    {
+                        "schema_version": CHECKPOINT_SCHEMA_VERSION,
+                        "model": self.model.state_dict(),
+                        "optimizer": self.optimizer.state_dict(),
+                        "encoder_type": self.encoder_type,
+                        "action_dim": self.action_dim,
+                    },
                     stream,
                 )
                 stream.flush()
@@ -368,13 +377,28 @@ class PPOAgent:
         checkpoint = torch.load(path, map_location=self.device, weights_only=True)
         if not isinstance(checkpoint, Mapping):
             raise ValueError("PPO checkpoint must contain a mapping")
+        schema_version = checkpoint.get("schema_version", 0)
+        if schema_version not in {0, CHECKPOINT_SCHEMA_VERSION}:
+            raise ValueError(f"Unsupported PPO checkpoint schema version: {schema_version}")
         encoder_type = checkpoint.get("encoder_type")
         if encoder_type != self.encoder_type:
             raise ValueError(
                 "PPO checkpoint encoder type mismatch: "
                 f"expected {self.encoder_type}, got {encoder_type}"
             )
+        action_dim = checkpoint.get("action_dim")
+        if action_dim is not None and action_dim != self.action_dim:
+            raise ValueError(
+                "PPO checkpoint action dimension mismatch: "
+                f"expected {self.action_dim}, got {action_dim}"
+            )
         state_dict = checkpoint.get("model")
         if not isinstance(state_dict, Mapping):
             raise ValueError("PPO checkpoint is missing a model state dictionary")
+        optimizer_state = checkpoint.get("optimizer")
+        if schema_version == CHECKPOINT_SCHEMA_VERSION:
+            if not isinstance(optimizer_state, Mapping):
+                raise ValueError("PPO checkpoint is missing an optimizer state dictionary")
         self.model.load_state_dict(state_dict)
+        if schema_version == CHECKPOINT_SCHEMA_VERSION:
+            self.optimizer.load_state_dict(optimizer_state)
