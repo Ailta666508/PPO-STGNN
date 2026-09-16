@@ -178,7 +178,7 @@ def test_checkpoint_round_trip_restores_policy(tmp_path, encoder):
     agent.save(str(checkpoint_path))
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
     assert checkpoint["encoder_type"] == encoder
-    assert checkpoint["schema_version"] == 1
+    assert checkpoint["schema_version"] == 2
     assert checkpoint["action_dim"] == len(obs["action_mask"])
     assert set(checkpoint) == {
         "schema_version",
@@ -186,6 +186,7 @@ def test_checkpoint_round_trip_restores_policy(tmp_path, encoder):
         "optimizer",
         "encoder_type",
         "action_dim",
+        "rng_state",
     }
 
     with torch.no_grad():
@@ -261,6 +262,45 @@ def test_checkpoint_round_trip_restores_optimizer_state(tmp_path):
                 torch.testing.assert_close(actual_value, expected_value)
             else:
                 assert actual_value == expected_value
+
+
+def test_checkpoint_round_trip_restores_random_generators(tmp_path):
+    torch.set_num_threads(1)
+    torch.manual_seed(91)
+    np.random.seed(91)
+    obs = synthetic_observation()
+    config = PPOConfig(train_iters=1, minibatch_size=8, hidden_dim=32)
+    source = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+    checkpoint_path = tmp_path / "rng.pt"
+    source.save(str(checkpoint_path))
+
+    expected_action = source.act(obs)[0]
+    expected_numpy = np.random.random(4)
+
+    restored = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+    restored.load(str(checkpoint_path))
+
+    assert restored.act(obs)[0] == expected_action
+    np.testing.assert_array_equal(np.random.random(4), expected_numpy)
+
+
+def test_checkpoint_load_keeps_schema_one_compatibility(tmp_path):
+    torch.set_num_threads(1)
+    obs = synthetic_observation()
+    config = PPOConfig(train_iters=1, minibatch_size=8, hidden_dim=32)
+    source = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+    checkpoint_path = tmp_path / "legacy-schema-one.pt"
+    source.save(str(checkpoint_path))
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+    checkpoint["schema_version"] = 1
+    checkpoint.pop("rng_state")
+    torch.save(checkpoint, checkpoint_path)
+
+    restored = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+    restored.load(str(checkpoint_path))
+
+    for expected, actual in zip(source.model.parameters(), restored.model.parameters()):
+        torch.testing.assert_close(actual, expected)
 
 
 def test_checkpoint_load_rejects_an_unknown_schema(tmp_path):

@@ -16,7 +16,45 @@ from cecoppo.baselines import _decode_pair_action, _estimate_action_components, 
 from cecoppo.graph_encoder import ActorCriticMLP, ActorCriticStaticGNN, ActorCriticSTGNN
 
 
-CHECKPOINT_SCHEMA_VERSION = 1
+CHECKPOINT_SCHEMA_VERSION = 2
+
+
+def _capture_rng_state() -> dict[str, object]:
+    numpy_state = np.random.get_state()
+    return {
+        "torch": torch.get_rng_state(),
+        "numpy_bit_generator": numpy_state[0],
+        "numpy_state": torch.from_numpy(numpy_state[1].copy()),
+        "numpy_position": numpy_state[2],
+        "numpy_has_gauss": numpy_state[3],
+        "numpy_cached_gaussian": numpy_state[4],
+    }
+
+
+def _restore_rng_state(state: Mapping[str, object]) -> None:
+    torch_state = state.get("torch")
+    numpy_values = state.get("numpy_state")
+    if not isinstance(torch_state, torch.Tensor) or not isinstance(numpy_values, torch.Tensor):
+        raise ValueError("PPO checkpoint contains an invalid RNG state")
+    bit_generator = state.get("numpy_bit_generator")
+    position = state.get("numpy_position")
+    has_gauss = state.get("numpy_has_gauss")
+    cached_gaussian = state.get("numpy_cached_gaussian")
+    if not isinstance(bit_generator, str) or not isinstance(position, int) or not isinstance(has_gauss, int):
+        raise ValueError("PPO checkpoint contains an invalid NumPy RNG state")
+    if not isinstance(cached_gaussian, (int, float)):
+        raise ValueError("PPO checkpoint contains an invalid NumPy RNG cache")
+
+    torch.set_rng_state(torch_state.detach().cpu().to(dtype=torch.uint8))
+    np.random.set_state(
+        (
+            bit_generator,
+            numpy_values.detach().cpu().numpy().astype(np.uint32, copy=False),
+            position,
+            has_gauss,
+            float(cached_gaussian),
+        )
+    )
 
 
 @dataclass
@@ -359,6 +397,7 @@ class PPOAgent:
                         "optimizer": self.optimizer.state_dict(),
                         "encoder_type": self.encoder_type,
                         "action_dim": self.action_dim,
+                        "rng_state": _capture_rng_state(),
                     },
                     stream,
                 )
@@ -378,7 +417,7 @@ class PPOAgent:
         if not isinstance(checkpoint, Mapping):
             raise ValueError("PPO checkpoint must contain a mapping")
         schema_version = checkpoint.get("schema_version", 0)
-        if schema_version not in {0, CHECKPOINT_SCHEMA_VERSION}:
+        if schema_version not in {0, 1, CHECKPOINT_SCHEMA_VERSION}:
             raise ValueError(f"Unsupported PPO checkpoint schema version: {schema_version}")
         encoder_type = checkpoint.get("encoder_type")
         if encoder_type != self.encoder_type:
@@ -396,9 +435,14 @@ class PPOAgent:
         if not isinstance(state_dict, Mapping):
             raise ValueError("PPO checkpoint is missing a model state dictionary")
         optimizer_state = checkpoint.get("optimizer")
-        if schema_version == CHECKPOINT_SCHEMA_VERSION:
+        if schema_version >= 1:
             if not isinstance(optimizer_state, Mapping):
                 raise ValueError("PPO checkpoint is missing an optimizer state dictionary")
+        rng_state = checkpoint.get("rng_state")
+        if schema_version == CHECKPOINT_SCHEMA_VERSION and not isinstance(rng_state, Mapping):
+            raise ValueError("PPO checkpoint is missing an RNG state")
         self.model.load_state_dict(state_dict)
-        if schema_version == CHECKPOINT_SCHEMA_VERSION:
+        if schema_version >= 1:
             self.optimizer.load_state_dict(optimizer_state)
+        if schema_version == CHECKPOINT_SCHEMA_VERSION:
+            _restore_rng_state(rng_state)
