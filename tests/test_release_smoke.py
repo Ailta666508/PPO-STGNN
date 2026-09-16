@@ -156,6 +156,19 @@ def test_policy_rejects_empty_and_misaligned_action_masks():
         agent._masked_logits(logits, wrong_size_mask)
 
 
+@pytest.mark.parametrize("invalid_value", [float("nan"), float("inf"), -1.0, 0.5])
+def test_policy_rejects_non_binary_action_masks(invalid_value):
+    torch.set_num_threads(1)
+    obs = synthetic_observation()
+    config = PPOConfig(train_iters=1, minibatch_size=8, hidden_dim=32)
+    agent = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+    invalid_obs = {key: value.copy() for key, value in obs.items()}
+    invalid_obs["action_mask"][0] = invalid_value
+
+    with pytest.raises(ValueError, match="finite binary|binary values"):
+        agent.act(invalid_obs, deterministic=True)
+
+
 @pytest.mark.parametrize("encoder", ["stgnn", "static_gnn", "mlp"])
 def test_checkpoint_round_trip_restores_policy(tmp_path, encoder):
     """A saved checkpoint must recover the exact data-free policy output."""

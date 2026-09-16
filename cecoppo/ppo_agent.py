@@ -243,6 +243,11 @@ class PPOAgent:
                 "action_mask shape must match policy logits: "
                 f"got {tuple(action_mask.shape)} and {tuple(logits.shape)}"
             )
+        if not torch.isfinite(action_mask).all():
+            raise ValueError("action_mask must contain only finite binary values")
+        non_binary = (action_mask != 0) & (action_mask != 1)
+        if non_binary.any():
+            raise ValueError("action_mask must contain only binary values")
         valid = action_mask > 0
         invalid_rows = (~valid.any(dim=-1)).nonzero(as_tuple=False).flatten().tolist()
         if invalid_rows:
