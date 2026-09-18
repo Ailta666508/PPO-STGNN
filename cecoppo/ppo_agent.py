@@ -290,6 +290,18 @@ class PPOAgent:
         return float(value.item())
 
     def store(self, obs: Dict[str, np.ndarray], action: int, reward: float, done: bool, log_prob: float, value: float) -> None:
+        if not isinstance(action, (int, np.integer)) or not 0 <= int(action) < self.action_dim:
+            raise ValueError(f"rollout action must be in [0, {self.action_dim})")
+        for name, scalar in (("reward", reward), ("log_prob", log_prob), ("value", value)):
+            if not np.isfinite(scalar):
+                raise ValueError(f"rollout {name} must be finite")
+        action_mask = np.asarray(obs.get("action_mask"))
+        if action_mask.shape != (self.action_dim,):
+            raise ValueError("rollout action_mask must match the policy action dimension")
+        if not np.isfinite(action_mask).all() or not np.isin(action_mask, (0, 1)).all():
+            raise ValueError("rollout action_mask must contain only finite binary values")
+        if action_mask[int(action)] != 1:
+            raise ValueError("rollout action must be allowed by action_mask")
         self.buffer.add(obs, action, reward, done, log_prob, value)
 
     def _compute_gae(self, last_value: float = 0.0):

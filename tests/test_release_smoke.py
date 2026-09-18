@@ -169,6 +169,51 @@ def test_policy_rejects_non_binary_action_masks(invalid_value):
         agent.act(invalid_obs, deterministic=True)
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("reward", float("nan")), ("log_prob", float("inf")), ("value", float("-inf"))],
+)
+def test_rollout_rejects_nonfinite_transition_values(field, value):
+    obs = synthetic_observation()
+    config = PPOConfig(train_iters=1, minibatch_size=8, hidden_dim=32)
+    agent = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+    transition = {"reward": 1.0, "log_prob": -0.5, "value": 0.25}
+    transition[field] = value
+
+    with pytest.raises(ValueError, match=f"rollout {field} must be finite"):
+        agent.store(
+            obs,
+            0,
+            transition["reward"],
+            False,
+            transition["log_prob"],
+            transition["value"],
+        )
+
+    assert len(agent.buffer) == 0
+
+
+def test_rollout_rejects_out_of_range_and_masked_actions():
+    obs = synthetic_observation()
+    config = PPOConfig(train_iters=1, minibatch_size=8, hidden_dim=32)
+    agent = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+
+    with pytest.raises(ValueError, match="must be in"):
+        agent.store(obs, len(obs["action_mask"]), 1.0, False, -0.5, 0.25)
+
+    masked_obs = {key: value.copy() for key, value in obs.items()}
+    masked_obs["action_mask"][0] = 0
+    with pytest.raises(ValueError, match="allowed by action_mask"):
+        agent.store(masked_obs, 0, 1.0, False, -0.5, 0.25)
+
+    malformed_obs = {key: value.copy() for key, value in obs.items()}
+    malformed_obs["action_mask"][1] = float("nan")
+    with pytest.raises(ValueError, match="finite binary"):
+        agent.store(malformed_obs, 0, 1.0, False, -0.5, 0.25)
+
+    assert len(agent.buffer) == 0
+
+
 @pytest.mark.parametrize("encoder", ["stgnn", "static_gnn", "mlp"])
 def test_checkpoint_round_trip_restores_policy(tmp_path, encoder):
     """A saved checkpoint must recover the exact data-free policy output."""
