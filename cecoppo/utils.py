@@ -16,7 +16,18 @@ ID_TO_ROLE = {v: k for k, v in ROLE_TO_ID.items()}
 
 
 def set_seed(seed: int, *, deterministic: bool = True) -> None:
-    """Seed every RNG and optionally request deterministic PyTorch kernels."""
+    """Seed every RNG and optionally request deterministic PyTorch kernels.
+
+    ``PYTHONHASHSEED`` is also exported for worker or evaluation subprocesses
+    started after this call. Python's current interpreter hash seed is fixed at
+    startup, so callers that require deterministic hashing in this process must
+    set the same environment variable before launching Python.
+    """
+    if isinstance(seed, bool) or not isinstance(seed, int):
+        raise TypeError("seed must be an integer")
+    if not 0 <= seed <= 2**32 - 1:
+        raise ValueError("seed must be between 0 and 2**32 - 1")
+    os.environ["PYTHONHASHSEED"] = str(seed)
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)

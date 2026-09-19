@@ -1,5 +1,6 @@
 """Data-free checks for reproducibility and terminal objective helpers."""
 
+import os
 import random
 
 import numpy as np
@@ -25,6 +26,7 @@ def test_set_seed_reproduces_python_numpy_and_torch_streams():
         assert first[0] == second[0]
         assert first[1] == second[1]
         torch.testing.assert_close(first[2], second[2], rtol=0.0, atol=0.0)
+        assert os.environ["PYTHONHASHSEED"] == "17"
         assert torch.are_deterministic_algorithms_enabled()
         if torch.backends.cudnn.is_available():
             assert torch.backends.cudnn.deterministic
@@ -39,6 +41,18 @@ def test_set_seed_can_restore_performance_oriented_backend_defaults():
     if torch.backends.cudnn.is_available():
         assert not torch.backends.cudnn.deterministic
         assert torch.backends.cudnn.benchmark
+
+
+@pytest.mark.parametrize("seed", [-1, 2**32])
+def test_set_seed_rejects_values_outside_numpy_range(seed):
+    with pytest.raises(ValueError, match="between 0 and"):
+        set_seed(seed)
+
+
+@pytest.mark.parametrize("seed", [True, 1.5, "42"])
+def test_set_seed_rejects_non_integer_values(seed):
+    with pytest.raises(TypeError, match="integer"):
+        set_seed(seed)
 
 
 def test_normalized_terms_use_explicit_refs_and_clamp_negative_metrics():
