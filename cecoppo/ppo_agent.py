@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import os
 import tempfile
 from collections.abc import Mapping
@@ -458,8 +459,20 @@ class PPOAgent:
         rng_state = checkpoint.get("rng_state")
         if schema_version == CHECKPOINT_SCHEMA_VERSION and not isinstance(rng_state, Mapping):
             raise ValueError("PPO checkpoint is missing an RNG state")
-        self.model.load_state_dict(state_dict)
-        if schema_version >= 1:
-            self.optimizer.load_state_dict(optimizer_state)
-        if schema_version == CHECKPOINT_SCHEMA_VERSION:
-            _restore_rng_state(rng_state)
+        model_before = {
+            name: value.detach().clone()
+            for name, value in self.model.state_dict().items()
+        }
+        optimizer_before = copy.deepcopy(self.optimizer.state_dict())
+        rng_before = _capture_rng_state()
+        try:
+            self.model.load_state_dict(state_dict)
+            if schema_version >= 1:
+                self.optimizer.load_state_dict(optimizer_state)
+            if schema_version == CHECKPOINT_SCHEMA_VERSION:
+                _restore_rng_state(rng_state)
+        except (KeyError, RuntimeError, TypeError, ValueError) as error:
+            self.model.load_state_dict(model_before)
+            self.optimizer.load_state_dict(optimizer_before)
+            _restore_rng_state(rng_before)
+            raise ValueError(f"Unable to load PPO checkpoint: {path}") from error

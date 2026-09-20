@@ -294,6 +294,33 @@ def test_checkpoint_load_rejects_a_different_encoder(tmp_path):
         destination.load(str(checkpoint_path))
 
 
+def test_checkpoint_load_rolls_back_after_invalid_optimizer_state(tmp_path):
+    torch.set_num_threads(1)
+    torch.manual_seed(42)
+    obs = synthetic_observation()
+    config = PPOConfig(train_iters=1, minibatch_size=8, hidden_dim=32)
+    source = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+    destination = PPOAgent(
+        obs,
+        len(obs["action_mask"]),
+        config.hidden_dim,
+        config,
+        encoder_type="mlp",
+    )
+    expected, _ = destination.action_distribution(obs)
+    checkpoint_path = tmp_path / "invalid-optimizer.pt"
+    source.save(str(checkpoint_path))
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+    checkpoint["optimizer"]["param_groups"][0]["params"] = []
+    torch.save(checkpoint, checkpoint_path)
+
+    with pytest.raises(ValueError, match="Unable to load PPO checkpoint"):
+        destination.load(str(checkpoint_path))
+
+    restored, _ = destination.action_distribution(obs)
+    np.testing.assert_allclose(restored, expected, rtol=0.0, atol=0.0)
+
+
 def test_checkpoint_round_trip_restores_optimizer_state(tmp_path):
     torch.set_num_threads(1)
     obs = synthetic_observation()
