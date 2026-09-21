@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import os
 import tempfile
 from collections.abc import Mapping
@@ -17,7 +18,22 @@ from cecoppo.baselines import _decode_pair_action, _estimate_action_components, 
 from cecoppo.graph_encoder import ActorCriticMLP, ActorCriticStaticGNN, ActorCriticSTGNN
 
 
-CHECKPOINT_SCHEMA_VERSION = 2
+CHECKPOINT_SCHEMA_VERSION = 3
+
+
+def _state_dict_sha256(state_dict: Mapping[str, object]) -> str:
+    """Hash tensor names, metadata, and bytes in a stable order."""
+    digest = hashlib.sha256()
+    for name in sorted(state_dict):
+        value = state_dict[name]
+        if not isinstance(value, torch.Tensor):
+            raise ValueError(f"PPO checkpoint model entry is not a tensor: {name}")
+        tensor = value.detach().cpu().contiguous()
+        digest.update(name.encode("utf-8"))
+        digest.update(str(tensor.dtype).encode("ascii"))
+        digest.update(str(tuple(tensor.shape)).encode("ascii"))
+        digest.update(tensor.reshape(-1).view(torch.uint8).numpy().tobytes())
+    return digest.hexdigest()
 
 
 def _capture_rng_state() -> dict[str, object]:
@@ -408,10 +424,12 @@ class PPOAgent:
                 delete=False,
             ) as stream:
                 temporary_path = Path(stream.name)
+                model_state = self.model.state_dict()
                 torch.save(
                     {
                         "schema_version": CHECKPOINT_SCHEMA_VERSION,
-                        "model": self.model.state_dict(),
+                        "model": model_state,
+                        "model_sha256": _state_dict_sha256(model_state),
                         "optimizer": self.optimizer.state_dict(),
                         "encoder_type": self.encoder_type,
                         "action_dim": self.action_dim,
@@ -435,7 +453,7 @@ class PPOAgent:
         if not isinstance(checkpoint, Mapping):
             raise ValueError("PPO checkpoint must contain a mapping")
         schema_version = checkpoint.get("schema_version", 0)
-        if schema_version not in {0, 1, CHECKPOINT_SCHEMA_VERSION}:
+        if schema_version not in {0, 1, 2, CHECKPOINT_SCHEMA_VERSION}:
             raise ValueError(f"Unsupported PPO checkpoint schema version: {schema_version}")
         encoder_type = checkpoint.get("encoder_type")
         if encoder_type != self.encoder_type:
@@ -452,12 +470,18 @@ class PPOAgent:
         state_dict = checkpoint.get("model")
         if not isinstance(state_dict, Mapping):
             raise ValueError("PPO checkpoint is missing a model state dictionary")
+        if schema_version >= 3:
+            expected_model_sha256 = checkpoint.get("model_sha256")
+            if not isinstance(expected_model_sha256, str):
+                raise ValueError("PPO checkpoint is missing its model checksum")
+            if _state_dict_sha256(state_dict) != expected_model_sha256:
+                raise ValueError("PPO checkpoint model checksum mismatch")
         optimizer_state = checkpoint.get("optimizer")
         if schema_version >= 1:
             if not isinstance(optimizer_state, Mapping):
                 raise ValueError("PPO checkpoint is missing an optimizer state dictionary")
         rng_state = checkpoint.get("rng_state")
-        if schema_version == CHECKPOINT_SCHEMA_VERSION and not isinstance(rng_state, Mapping):
+        if schema_version >= 2 and not isinstance(rng_state, Mapping):
             raise ValueError("PPO checkpoint is missing an RNG state")
         model_before = {
             name: value.detach().clone()
@@ -469,7 +493,7 @@ class PPOAgent:
             self.model.load_state_dict(state_dict)
             if schema_version >= 1:
                 self.optimizer.load_state_dict(optimizer_state)
-            if schema_version == CHECKPOINT_SCHEMA_VERSION:
+            if schema_version >= 2:
                 _restore_rng_state(rng_state)
         except (KeyError, RuntimeError, TypeError, ValueError) as error:
             self.model.load_state_dict(model_before)

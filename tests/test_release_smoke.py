@@ -236,11 +236,13 @@ def test_checkpoint_round_trip_restores_policy(tmp_path, encoder):
     agent.save(str(checkpoint_path))
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
     assert checkpoint["encoder_type"] == encoder
-    assert checkpoint["schema_version"] == 2
+    assert checkpoint["schema_version"] == 3
     assert checkpoint["action_dim"] == len(obs["action_mask"])
+    assert len(checkpoint["model_sha256"]) == 64
     assert set(checkpoint) == {
         "schema_version",
         "model",
+        "model_sha256",
         "optimizer",
         "encoder_type",
         "action_dim",
@@ -321,6 +323,24 @@ def test_checkpoint_load_rolls_back_after_invalid_optimizer_state(tmp_path):
     np.testing.assert_allclose(restored, expected, rtol=0.0, atol=0.0)
 
 
+def test_checkpoint_load_rejects_modified_model_tensor(tmp_path):
+    torch.set_num_threads(1)
+    obs = synthetic_observation()
+    config = PPOConfig(train_iters=1, minibatch_size=8, hidden_dim=32)
+    agent = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+    checkpoint_path = tmp_path / "modified-model.pt"
+    agent.save(str(checkpoint_path))
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+    first_name = next(iter(checkpoint["model"]))
+    changed = checkpoint["model"][first_name].clone()
+    changed.view(-1)[0] += 1
+    checkpoint["model"][first_name] = changed
+    torch.save(checkpoint, checkpoint_path)
+
+    with pytest.raises(ValueError, match="model checksum mismatch"):
+        agent.load(str(checkpoint_path))
+
+
 def test_checkpoint_round_trip_restores_optimizer_state(tmp_path):
     torch.set_num_threads(1)
     obs = synthetic_observation()
@@ -379,6 +399,25 @@ def test_checkpoint_load_keeps_schema_one_compatibility(tmp_path):
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
     checkpoint["schema_version"] = 1
     checkpoint.pop("rng_state")
+    torch.save(checkpoint, checkpoint_path)
+
+    restored = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+    restored.load(str(checkpoint_path))
+
+    for expected, actual in zip(source.model.parameters(), restored.model.parameters()):
+        torch.testing.assert_close(actual, expected)
+
+
+def test_checkpoint_load_keeps_schema_two_compatibility(tmp_path):
+    torch.set_num_threads(1)
+    obs = synthetic_observation()
+    config = PPOConfig(train_iters=1, minibatch_size=8, hidden_dim=32)
+    source = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+    checkpoint_path = tmp_path / "legacy-schema-two.pt"
+    source.save(str(checkpoint_path))
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+    checkpoint["schema_version"] = 2
+    checkpoint.pop("model_sha256")
     torch.save(checkpoint, checkpoint_path)
 
     restored = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
