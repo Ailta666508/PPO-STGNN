@@ -18,7 +18,7 @@ from cecoppo.baselines import _decode_pair_action, _estimate_action_components, 
 from cecoppo.graph_encoder import ActorCriticMLP, ActorCriticStaticGNN, ActorCriticSTGNN
 
 
-CHECKPOINT_SCHEMA_VERSION = 3
+CHECKPOINT_SCHEMA_VERSION = 4
 
 
 def _state_dict_sha256(state_dict: Mapping[str, object]) -> str:
@@ -33,6 +33,51 @@ def _state_dict_sha256(state_dict: Mapping[str, object]) -> str:
         digest.update(str(tensor.dtype).encode("ascii"))
         digest.update(str(tuple(tensor.shape)).encode("ascii"))
         digest.update(tensor.reshape(-1).view(torch.uint8).numpy().tobytes())
+    return digest.hexdigest()
+
+
+def _update_checkpoint_digest(digest: "hashlib._Hash", value: object) -> None:
+    """Hash nested checkpoint values without relying on torch serialization bytes."""
+    if isinstance(value, torch.Tensor):
+        tensor = value.detach().cpu().contiguous()
+        digest.update(b"tensor:")
+        digest.update(str(tensor.dtype).encode("ascii"))
+        digest.update(str(tuple(tensor.shape)).encode("ascii"))
+        digest.update(tensor.reshape(-1).view(torch.uint8).numpy().tobytes())
+    elif isinstance(value, Mapping):
+        digest.update(b"mapping:")
+        entries = sorted(value.items(), key=lambda item: (type(item[0]).__name__, repr(item[0])))
+        for key, item in entries:
+            _update_checkpoint_digest(digest, key)
+            _update_checkpoint_digest(digest, item)
+    elif isinstance(value, (list, tuple)):
+        digest.update(b"sequence:")
+        for item in value:
+            _update_checkpoint_digest(digest, item)
+    elif value is None:
+        digest.update(b"none")
+    elif isinstance(value, bool):
+        digest.update(b"bool:")
+        digest.update(str(value).encode("ascii"))
+    elif isinstance(value, int):
+        digest.update(b"int:")
+        digest.update(str(value).encode("ascii"))
+    elif isinstance(value, float):
+        digest.update(b"float:")
+        digest.update(repr(value).encode("ascii"))
+    elif isinstance(value, str):
+        encoded = value.encode("utf-8")
+        digest.update(b"str:")
+        digest.update(str(len(encoded)).encode("ascii"))
+        digest.update(encoded)
+    else:
+        raise ValueError(f"Unsupported PPO checkpoint value: {type(value).__name__}")
+
+
+def _training_state_sha256(payload: Mapping[str, object]) -> str:
+    """Hash model, optimizer, RNG, and architecture metadata together."""
+    digest = hashlib.sha256()
+    _update_checkpoint_digest(digest, payload)
     return digest.hexdigest()
 
 
@@ -425,18 +470,17 @@ class PPOAgent:
             ) as stream:
                 temporary_path = Path(stream.name)
                 model_state = self.model.state_dict()
-                torch.save(
-                    {
-                        "schema_version": CHECKPOINT_SCHEMA_VERSION,
-                        "model": model_state,
-                        "model_sha256": _state_dict_sha256(model_state),
-                        "optimizer": self.optimizer.state_dict(),
-                        "encoder_type": self.encoder_type,
-                        "action_dim": self.action_dim,
-                        "rng_state": _capture_rng_state(),
-                    },
-                    stream,
-                )
+                checkpoint = {
+                    "schema_version": CHECKPOINT_SCHEMA_VERSION,
+                    "model": model_state,
+                    "model_sha256": _state_dict_sha256(model_state),
+                    "optimizer": self.optimizer.state_dict(),
+                    "encoder_type": self.encoder_type,
+                    "action_dim": self.action_dim,
+                    "rng_state": _capture_rng_state(),
+                }
+                checkpoint["training_state_sha256"] = _training_state_sha256(checkpoint)
+                torch.save(checkpoint, stream)
                 stream.flush()
                 os.fsync(stream.fileno())
             os.replace(temporary_path, destination)
@@ -453,7 +497,7 @@ class PPOAgent:
         if not isinstance(checkpoint, Mapping):
             raise ValueError("PPO checkpoint must contain a mapping")
         schema_version = checkpoint.get("schema_version", 0)
-        if schema_version not in {0, 1, 2, CHECKPOINT_SCHEMA_VERSION}:
+        if schema_version not in {0, 1, 2, 3, CHECKPOINT_SCHEMA_VERSION}:
             raise ValueError(f"Unsupported PPO checkpoint schema version: {schema_version}")
         encoder_type = checkpoint.get("encoder_type")
         if encoder_type != self.encoder_type:
@@ -476,6 +520,17 @@ class PPOAgent:
                 raise ValueError("PPO checkpoint is missing its model checksum")
             if _state_dict_sha256(state_dict) != expected_model_sha256:
                 raise ValueError("PPO checkpoint model checksum mismatch")
+        if schema_version >= 4:
+            expected_training_sha256 = checkpoint.get("training_state_sha256")
+            if not isinstance(expected_training_sha256, str):
+                raise ValueError("PPO checkpoint is missing its training-state checksum")
+            payload = {
+                key: value
+                for key, value in checkpoint.items()
+                if key != "training_state_sha256"
+            }
+            if _training_state_sha256(payload) != expected_training_sha256:
+                raise ValueError("PPO checkpoint training-state checksum mismatch")
         optimizer_state = checkpoint.get("optimizer")
         if schema_version >= 1:
             if not isinstance(optimizer_state, Mapping):
