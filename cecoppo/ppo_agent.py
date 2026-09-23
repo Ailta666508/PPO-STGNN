@@ -484,6 +484,8 @@ class PPOAgent:
                 stream.flush()
                 os.fsync(stream.fileno())
             os.replace(temporary_path, destination)
+            temporary_path = None
+            self._fsync_directory(destination.parent)
         except (OSError, RuntimeError) as error:
             if temporary_path is not None:
                 try:
@@ -491,6 +493,17 @@ class PPOAgent:
                 except OSError:
                     pass
             raise RuntimeError(f"Unable to save PPO checkpoint: {destination}") from error
+
+    @staticmethod
+    def _fsync_directory(directory: Path) -> None:
+        """Persist the checkpoint rename on platforms with directory descriptors."""
+        if os.name == "nt":  # pragma: no cover - directory descriptors are Unix-specific.
+            return
+        descriptor = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
 
     def load(self, path: str) -> None:
         checkpoint = torch.load(path, map_location=self.device, weights_only=True)

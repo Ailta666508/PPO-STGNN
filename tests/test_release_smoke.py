@@ -278,6 +278,20 @@ def test_checkpoint_save_is_atomic_when_serialization_fails(tmp_path):
     assert list(tmp_path.glob(".policy.pt.*.tmp")) == []
 
 
+def test_checkpoint_save_syncs_the_parent_directory(tmp_path):
+    torch.set_num_threads(1)
+    obs = synthetic_observation()
+    config = PPOConfig(train_iters=1, minibatch_size=8, hidden_dim=32)
+    agent = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+    checkpoint_path = tmp_path / "policy.pt"
+
+    with patch.object(PPOAgent, "_fsync_directory") as sync_directory:
+        agent.save(str(checkpoint_path))
+
+    sync_directory.assert_called_once_with(tmp_path)
+    assert checkpoint_path.is_file()
+
+
 def test_checkpoint_load_rejects_a_different_encoder(tmp_path):
     torch.set_num_threads(1)
     obs = synthetic_observation()
