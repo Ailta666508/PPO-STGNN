@@ -1,6 +1,6 @@
 {
-  "date": "2026-09-23",
-  "python": "3.12.13",
+  "date": "2026-09-25",
+  "python": "3.12.14",
   "platform": "Darwin",
   "architecture": "arm64",
   "device": "cpu",
@@ -21,7 +21,7 @@
     "public_maintained_source_hashes": 15,
     "pytest_with_local_dataset": 8,
     "pytest_without_dataset": {
-      "passed": 39,
+      "passed": 41,
       "skipped": 5
     },
     "arxiv_id": "2609.03503",

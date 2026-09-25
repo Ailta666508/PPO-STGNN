@@ -17,7 +17,7 @@ import torch
 from cecoppo.baselines import FCFSPolicy, GreedyPolicy, HEFTPolicy, LeastLoadPolicy
 from cecoppo.config import EnvConfig, PPOConfig
 from cecoppo.env_cec_dag import CloudEdgeDagEnv
-from cecoppo.ppo_agent import PPOAgent
+from cecoppo.ppo_agent import PPOAgent, _training_state_sha256
 
 
 DATA_DIR = Path(os.environ.get(
@@ -236,7 +236,7 @@ def test_checkpoint_round_trip_restores_policy(tmp_path, encoder):
     agent.save(str(checkpoint_path))
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
     assert checkpoint["encoder_type"] == encoder
-    assert checkpoint["schema_version"] == 4
+    assert checkpoint["schema_version"] == 5
     assert checkpoint["action_dim"] == len(obs["action_mask"])
     assert len(checkpoint["model_sha256"]) == 64
     assert set(checkpoint) == {
@@ -421,6 +421,36 @@ def test_checkpoint_round_trip_restores_random_generators(tmp_path):
     np.testing.assert_array_equal(np.random.random(4), expected_numpy)
 
 
+def test_checkpoint_round_trip_restores_cuda_random_generators(tmp_path):
+    torch.set_num_threads(1)
+    obs = synthetic_observation()
+    config = PPOConfig(train_iters=1, minibatch_size=8, hidden_dim=32)
+    source = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+    checkpoint_path = tmp_path / "cuda-rng.pt"
+    cuda_state = torch.tensor([7, 11, 13], dtype=torch.uint8)
+
+    with (
+        patch("cecoppo.ppo_agent.torch.cuda.is_available", return_value=True),
+        patch("cecoppo.ppo_agent.torch.cuda.get_rng_state_all", return_value=[cuda_state]),
+    ):
+        source.save(str(checkpoint_path))
+
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+    torch.testing.assert_close(checkpoint["rng_state"]["torch_cuda"][0], cuda_state)
+
+    restored = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+    with (
+        patch("cecoppo.ppo_agent.torch.cuda.is_available", return_value=True),
+        patch("cecoppo.ppo_agent.torch.cuda.device_count", return_value=1),
+        patch("cecoppo.ppo_agent.torch.cuda.get_rng_state_all", return_value=[cuda_state]),
+        patch("cecoppo.ppo_agent.torch.cuda.set_rng_state_all") as set_cuda_rng,
+    ):
+        restored.load(str(checkpoint_path))
+
+    restored_state = set_cuda_rng.call_args.args[0]
+    torch.testing.assert_close(restored_state[0], cuda_state)
+
+
 def test_checkpoint_load_keeps_schema_one_compatibility(tmp_path):
     torch.set_num_threads(1)
     obs = synthetic_observation()
@@ -452,6 +482,30 @@ def test_checkpoint_load_keeps_schema_two_compatibility(tmp_path):
     checkpoint["schema_version"] = 2
     checkpoint.pop("model_sha256")
     checkpoint.pop("training_state_sha256")
+    torch.save(checkpoint, checkpoint_path)
+
+    restored = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+    restored.load(str(checkpoint_path))
+
+    for expected, actual in zip(source.model.parameters(), restored.model.parameters()):
+        torch.testing.assert_close(actual, expected)
+
+
+def test_checkpoint_load_keeps_schema_four_compatibility(tmp_path):
+    torch.set_num_threads(1)
+    obs = synthetic_observation()
+    config = PPOConfig(train_iters=1, minibatch_size=8, hidden_dim=32)
+    source = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+    checkpoint_path = tmp_path / "legacy-schema-four.pt"
+    source.save(str(checkpoint_path))
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+    checkpoint["schema_version"] = 4
+    checkpoint["rng_state"].pop("torch_cuda")
+    checkpoint["training_state_sha256"] = _training_state_sha256({
+        key: value
+        for key, value in checkpoint.items()
+        if key != "training_state_sha256"
+    })
     torch.save(checkpoint, checkpoint_path)
 
     restored = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
