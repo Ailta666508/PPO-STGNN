@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import os
+import random
 import tempfile
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -18,7 +19,7 @@ from cecoppo.baselines import _decode_pair_action, _estimate_action_components, 
 from cecoppo.graph_encoder import ActorCriticMLP, ActorCriticStaticGNN, ActorCriticSTGNN
 
 
-CHECKPOINT_SCHEMA_VERSION = 5
+CHECKPOINT_SCHEMA_VERSION = 6
 
 
 def _state_dict_sha256(state_dict: Mapping[str, object]) -> str:
@@ -91,6 +92,7 @@ def _capture_rng_state() -> dict[str, object]:
     return {
         "torch": torch.get_rng_state(),
         "torch_cuda": cuda_states,
+        "python_random": random.getstate(),
         "numpy_bit_generator": numpy_state[0],
         "numpy_state": torch.from_numpy(numpy_state[1].copy()),
         "numpy_position": numpy_state[2],
@@ -102,6 +104,7 @@ def _capture_rng_state() -> dict[str, object]:
 def _restore_rng_state(state: Mapping[str, object]) -> None:
     torch_state = state.get("torch")
     cuda_states = state.get("torch_cuda", [])
+    python_state = state.get("python_random")
     numpy_values = state.get("numpy_state")
     if not isinstance(torch_state, torch.Tensor) or not isinstance(numpy_values, torch.Tensor):
         raise ValueError("PPO checkpoint contains an invalid RNG state")
@@ -117,6 +120,8 @@ def _restore_rng_state(state: Mapping[str, object]) -> None:
         isinstance(value, torch.Tensor) for value in cuda_states
     ):
         raise ValueError("PPO checkpoint contains an invalid CUDA RNG state")
+    if python_state is not None and not isinstance(python_state, tuple):
+        raise ValueError("PPO checkpoint contains an invalid Python RNG state")
 
     torch.set_rng_state(torch_state.detach().cpu().to(dtype=torch.uint8))
     if cuda_states and torch.cuda.is_available():
@@ -127,6 +132,8 @@ def _restore_rng_state(state: Mapping[str, object]) -> None:
         torch.cuda.set_rng_state_all(
             [value.detach().cpu().to(dtype=torch.uint8) for value in cuda_states]
         )
+    if python_state is not None:
+        random.setstate(python_state)
     np.random.set_state(
         (
             bit_generator,
@@ -529,7 +536,7 @@ class PPOAgent:
         if not isinstance(checkpoint, Mapping):
             raise ValueError("PPO checkpoint must contain a mapping")
         schema_version = checkpoint.get("schema_version", 0)
-        if schema_version not in {0, 1, 2, 3, 4, CHECKPOINT_SCHEMA_VERSION}:
+        if schema_version not in {0, 1, 2, 3, 4, 5, CHECKPOINT_SCHEMA_VERSION}:
             raise ValueError(f"Unsupported PPO checkpoint schema version: {schema_version}")
         encoder_type = checkpoint.get("encoder_type")
         if encoder_type != self.encoder_type:
@@ -572,6 +579,8 @@ class PPOAgent:
             raise ValueError("PPO checkpoint is missing an RNG state")
         if schema_version >= 5 and "torch_cuda" not in rng_state:
             raise ValueError("PPO checkpoint is missing its CUDA RNG state")
+        if schema_version >= 6 and "python_random" not in rng_state:
+            raise ValueError("PPO checkpoint is missing its Python RNG state")
         model_before = {
             name: value.detach().clone()
             for name, value in self.model.state_dict().items()

@@ -1,5 +1,5 @@
 {
-  "date": "2026-09-25",
+  "date": "2026-09-26",
   "python": "3.12.14",
   "platform": "Darwin",
   "architecture": "arm64",
@@ -21,7 +21,7 @@
     "public_maintained_source_hashes": 15,
     "pytest_with_local_dataset": 8,
     "pytest_without_dataset": {
-      "passed": 41,
+      "passed": 42,
       "skipped": 5
     },
     "arxiv_id": "2609.03503",
