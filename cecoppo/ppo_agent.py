@@ -122,6 +122,13 @@ def _restore_rng_state(state: Mapping[str, object]) -> None:
         raise ValueError("PPO checkpoint contains an invalid CUDA RNG state")
     if python_state is not None and not isinstance(python_state, tuple):
         raise ValueError("PPO checkpoint contains an invalid Python RNG state")
+    if python_state is not None:
+        try:
+            random.Random().setstate(python_state)
+        except (TypeError, ValueError) as error:
+            raise ValueError(
+                "PPO checkpoint contains an invalid Python RNG state"
+            ) from error
 
     torch.set_rng_state(torch_state.detach().cpu().to(dtype=torch.uint8))
     if cuda_states and torch.cuda.is_available():

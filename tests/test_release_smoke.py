@@ -543,6 +543,41 @@ def test_checkpoint_load_keeps_schema_five_compatibility(tmp_path):
         torch.testing.assert_close(actual, expected)
 
 
+def test_checkpoint_load_rejects_invalid_python_rng_before_mutation(tmp_path):
+    torch.set_num_threads(1)
+    obs = synthetic_observation()
+    config = PPOConfig(train_iters=1, minibatch_size=8, hidden_dim=32)
+    source = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+    checkpoint_path = tmp_path / "invalid-python-rng.pt"
+    source.save(str(checkpoint_path))
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+    checkpoint["rng_state"]["python_random"] = (3, (1, 2), None)
+    checkpoint["training_state_sha256"] = _training_state_sha256({
+        key: value
+        for key, value in checkpoint.items()
+        if key != "training_state_sha256"
+    })
+    torch.save(checkpoint, checkpoint_path)
+
+    restored = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+    torch.manual_seed(271)
+    np.random.seed(271)
+    random.seed(271)
+    torch_before = torch.get_rng_state().clone()
+    numpy_before = np.random.get_state()
+    python_before = random.getstate()
+
+    with pytest.raises(ValueError, match="Unable to load PPO checkpoint"):
+        restored.load(str(checkpoint_path))
+
+    torch.testing.assert_close(torch.get_rng_state(), torch_before)
+    assert random.getstate() == python_before
+    numpy_after = np.random.get_state()
+    assert numpy_after[0] == numpy_before[0]
+    np.testing.assert_array_equal(numpy_after[1], numpy_before[1])
+    assert numpy_after[2:] == numpy_before[2:]
+
+
 def test_checkpoint_load_rejects_an_unknown_schema(tmp_path):
     torch.set_num_threads(1)
     obs = synthetic_observation()
