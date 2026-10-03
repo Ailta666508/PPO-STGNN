@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import tempfile
 from dataclasses import fields
 from pathlib import Path
 from typing import Any, Mapping, TypeVar
@@ -56,18 +58,38 @@ def config_fingerprint(config: TrainConfig) -> str:
 
 def save_train_config(config: TrainConfig, path: str | Path) -> str:
     destination = Path(path)
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(
-        json.dumps(config.to_dict(), ensure_ascii=False, allow_nan=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    return config_fingerprint(config)
+    # Serialize before touching disk so invalid values cannot truncate a good config.
+    content = json.dumps(config.to_dict(), ensure_ascii=False, allow_nan=False, indent=2) + "\n"
+    fingerprint = config_fingerprint(config)
+    temporary_path = None
+    try:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", newline="\n", dir=destination.parent,
+            prefix=f".{destination.name}.", suffix=".tmp", delete=False,
+        ) as stream:
+            temporary_path = Path(stream.name)
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary_path, destination)
+        temporary_path = None
+    except OSError as error:
+        raise ExperimentConfigError(f"Unable to save experiment config: {destination}") from error
+    finally:
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink(missing_ok=True)
+            except OSError:
+                # Preserve the original save error if cleanup also fails.
+                pass
+    return fingerprint
 
 
 def load_train_config(path: str | Path) -> TrainConfig:
     source = Path(path)
     try:
         payload = json.loads(source.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
         raise ExperimentConfigError(f"Unable to load experiment config: {source}") from error
     return train_config_from_dict(payload)

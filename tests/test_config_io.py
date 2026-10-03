@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from cecoppo.config import TrainConfig
 from cecoppo.config_io import (
@@ -14,6 +15,46 @@ from cecoppo.config_io import (
 
 
 class ExperimentConfigIoTests(unittest.TestCase):
+    def test_failed_replace_preserves_existing_config_and_removes_temporary_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config.json"
+            save_train_config(TrainConfig(), path)
+            original = path.read_bytes()
+            with patch("cecoppo.config_io.os.replace", side_effect=OSError("synthetic failure")):
+                with self.assertRaisesRegex(ExperimentConfigError, "Unable to save"):
+                    save_train_config(TrainConfig(eval_episodes=1), path)
+            self.assertEqual(path.read_bytes(), original)
+            self.assertEqual(list(Path(directory).iterdir()), [path])
+
+    def test_failed_sync_preserves_existing_config(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config.json"
+            save_train_config(TrainConfig(), path)
+            original = path.read_bytes()
+            with patch("cecoppo.config_io.os.fsync", side_effect=OSError("synthetic failure")):
+                with self.assertRaises(ExperimentConfigError):
+                    save_train_config(TrainConfig(eval_episodes=1), path)
+            self.assertEqual(path.read_bytes(), original)
+            self.assertEqual(list(Path(directory).iterdir()), [path])
+
+    def test_nonfinite_config_does_not_overwrite_existing_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config.json"
+            save_train_config(TrainConfig(), path)
+            original = path.read_bytes()
+            invalid = TrainConfig()
+            invalid.ppo.lr = float("nan")
+            with self.assertRaises(ValueError):
+                save_train_config(invalid, path)
+            self.assertEqual(path.read_bytes(), original)
+
+    def test_invalid_utf8_reports_config_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config.json"
+            path.write_bytes(b"\xff")
+            with self.assertRaises(ExperimentConfigError):
+                load_train_config(path)
+
     def test_round_trip_preserves_resolved_settings_and_fingerprint(self):
         config = TrainConfig(device="cpu", eval_episodes=3)
         config.env.seed = 17
