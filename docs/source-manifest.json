@@ -75,6 +75,11 @@
       "path": "cecoppo/ppo_agent.py",
       "sha256": "6d69c7aa543d5303edc2d2ef655f9197bca5eb24c67a94db96fbe9025d42a5ae",
       "bytes": 27886
+    },
+    {
+      "path": "cecoppo/synthetic_run.py",
+      "sha256": "bbd4b7a1899aedadbece39c934782a2bb0423ed14ab8f760a1878e2684e5e75a",
+      "bytes": 4369
     }
   ]
 }

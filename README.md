@@ -188,3 +188,20 @@ No repository-wide license was included with the supplied package. This release 
 For questions about this release or to report a reproducibility issue, please [open an issue](https://github.com/Ailta666508/PPO-STGNN/issues).
 
 **Note:** This project was initially developed locally. The Git repository was created when the codebase was prepared for publication, so the early development history is unavailable. Subsequent updates are tracked in this repository.
+
+### Data-free PPO quick run
+
+After installing `requirements.txt`, run:
+
+```bash
+python -m cecoppo.synthetic_run --encoder stgnn --seed 42 --steps 8
+```
+
+This CPU example uses explicitly synthetic tensors and alternating rewards.
+It exercises masked action sampling, a real PPO optimizer update, and an exact
+checkpoint policy round trip without private traces or persistent checkpoint
+files. JSON output identifies the seed, encoder, configuration fingerprint,
+actions, finite losses, and verification outcomes. It is software interface
+validation, not simulator evaluation or paper-result reproduction. Supported
+encoders are `stgnn`, `static_gnn`, and `mlp`; steps must be between 2 and 128.
+The GitHub Actions workflow runs this public entry point after the tests.

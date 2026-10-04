@@ -45,3 +45,6 @@ jobs:
         run: python -m pytest -q
         env:
           MPLCONFIGDIR: ${{ runner.temp }}/matplotlib
+
+      - name: Run public data-free training example
+        run: python -m cecoppo.synthetic_run --encoder stgnn --seed 42 --steps 8
