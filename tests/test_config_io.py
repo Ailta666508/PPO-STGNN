@@ -8,6 +8,7 @@ from cecoppo.config import TrainConfig
 from cecoppo.config_io import (
     ExperimentConfigError,
     config_fingerprint,
+    config_changes,
     load_train_config,
     save_train_config,
     train_config_from_dict,
@@ -15,6 +16,19 @@ from cecoppo.config_io import (
 
 
 class ExperimentConfigIoTests(unittest.TestCase):
+    def test_config_changes_reports_actionable_leaf_paths(self):
+        reference = TrainConfig()
+        candidate = TrainConfig()
+        candidate.env.seed = 17
+        candidate.ppo.lr = 0.0002
+        self.assertEqual(
+            config_changes(reference, candidate),
+            {"env.seed": (42, 17), "ppo.lr": (0.0001, 0.0002)},
+        )
+
+    def test_config_changes_is_empty_for_equivalent_configs(self):
+        self.assertEqual(config_changes(TrainConfig(), TrainConfig()), {})
+
     def test_failed_replace_preserves_existing_config_and_removes_temporary_file(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "config.json"

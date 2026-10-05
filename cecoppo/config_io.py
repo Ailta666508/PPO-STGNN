@@ -56,6 +56,27 @@ def config_fingerprint(config: TrainConfig) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:12]
 
 
+def config_changes(reference: TrainConfig, candidate: TrainConfig) -> dict[str, tuple[Any, Any]]:
+    """Return changed leaf fields as ``path: (reference, candidate)`` pairs.
+
+    This gives resume/evaluation tools an actionable explanation when two
+    fingerprints differ, without comparing serialized JSON strings manually.
+    """
+    def walk(left: Any, right: Any, path: str = "") -> dict[str, tuple[Any, Any]]:
+        if isinstance(left, Mapping) and isinstance(right, Mapping):
+            changes: dict[str, tuple[Any, Any]] = {}
+            for key in sorted(set(left) | set(right)):
+                child = f"{path}.{key}" if path else str(key)
+                if key not in left or key not in right:
+                    changes[child] = (left.get(key), right.get(key))
+                else:
+                    changes.update(walk(left[key], right[key], child))
+            return changes
+        return {} if left == right else {path: (left, right)}
+
+    return walk(reference.to_dict(), candidate.to_dict())
+
+
 def save_train_config(config: TrainConfig, path: str | Path) -> str:
     destination = Path(path)
     # Serialize before touching disk so invalid values cannot truncate a good config.
