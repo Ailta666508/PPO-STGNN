@@ -80,6 +80,11 @@
       "path": "cecoppo/synthetic_run.py",
       "sha256": "bbd4b7a1899aedadbece39c934782a2bb0423ed14ab8f760a1878e2684e5e75a",
       "bytes": 4369
+    },
+    {
+      "path": "cecoppo/compare_configs.py",
+      "sha256": "9b23ea07378dfbf9566347c9248de413b34bcb1474c08d2623ddfd0767540118",
+      "bytes": 1210
     }
   ]
 }

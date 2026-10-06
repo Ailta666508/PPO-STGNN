@@ -205,3 +205,7 @@ actions, finite losses, and verification outcomes. It is software interface
 validation, not simulator evaluation or paper-result reproduction. Supported
 encoders are `stgnn`, `static_gnn`, and `mlp`; steps must be between 2 and 128.
 The GitHub Actions workflow runs this public entry point after the tests.
+
+### Compare saved experiment configurations
+
+Run `python -m cecoppo.compare_configs reference.json candidate.json` without torch or dataset access. It resolves defaults and emits JSON with both fingerprints and changed leaf paths with before/after values. Exit codes: 0 identical, 1 changed, 2 invalid input. This compares settings only; it does not establish experiment reproducibility.
