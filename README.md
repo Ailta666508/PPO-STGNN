@@ -209,3 +209,8 @@ The GitHub Actions workflow runs this public entry point after the tests.
 ### Compare saved experiment configurations
 
 Run `python -m cecoppo.compare_configs reference.json candidate.json` without torch or dataset access. It resolves defaults and emits JSON with both fingerprints and changed leaf paths with before/after values. Exit codes: 0 identical, 1 changed, 2 invalid input. This compares settings only; it does not establish experiment reproducibility.
+
+Resume automation can explicitly approve expected drift, for example
+`--allow env.seed`. Repeat the option for multiple fields. The command exits 0
+only when every difference is approved, reports approved and unapproved changes
+separately, and rejects misspelled allow-list paths.
