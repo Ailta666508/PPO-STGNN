@@ -1,5 +1,23 @@
 {
   "date": "2026-09-28",
+  "latest_maintenance_validation": {
+    "date": "2026-10-08",
+    "scope": "CPU checkpoint RNG validation and failure rollback integrated with current experiment configuration and synthetic quick-run checks; no dataset or benchmark rerun.",
+    "pytest_without_dataset": {
+      "passed": 62,
+      "skipped": 5
+    },
+    "maintained_source_hashes_verified": 16,
+    "python_files_parsed": 15,
+    "publication_assets_verified": 5,
+    "synthetic_quick_run": {
+      "encoder": "stgnn",
+      "seed": 42,
+      "steps": 8,
+      "parameters_updated": true,
+      "checkpoint_round_trip": true
+    }
+  },
   "python": "3.12.14",
   "platform": "Darwin",
   "architecture": "arm64",

@@ -407,6 +407,7 @@ def test_checkpoint_round_trip_restores_random_generators(tmp_path):
     torch.manual_seed(91)
     np.random.seed(91)
     random.seed(91)
+    random.gauss(0, 1)  # Populate the cached second Gaussian before saving.
     obs = synthetic_observation()
     config = PPOConfig(train_iters=1, minibatch_size=8, hidden_dim=32)
     source = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
@@ -416,6 +417,7 @@ def test_checkpoint_round_trip_restores_random_generators(tmp_path):
     expected_action = source.act(obs)[0]
     expected_numpy = np.random.random(4)
     expected_python = random.random()
+    expected_gaussian = random.gauss(0, 1)
 
     restored = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
     restored.load(str(checkpoint_path))
@@ -423,6 +425,7 @@ def test_checkpoint_round_trip_restores_random_generators(tmp_path):
     assert restored.act(obs)[0] == expected_action
     np.testing.assert_array_equal(np.random.random(4), expected_numpy)
     assert random.random() == expected_python
+    assert random.gauss(0, 1) == expected_gaussian
 
 
 def test_checkpoint_round_trip_restores_cuda_random_generators(tmp_path):
@@ -543,7 +546,19 @@ def test_checkpoint_load_keeps_schema_five_compatibility(tmp_path):
         torch.testing.assert_close(actual, expected)
 
 
-def test_checkpoint_load_rejects_invalid_python_rng_before_mutation(tmp_path):
+@pytest.mark.parametrize(
+    "python_state",
+    [
+        (3, (1, 2), None),
+        (),
+        None,
+        (3, (2**100,) + random.Random(0).getstate()[1][1:], None),
+        (3, random.Random(0).getstate()[1], "invalid-cache"),
+        (3, random.Random(0).getstate()[1], float("nan")),
+    ],
+    ids=["truncated-state", "empty-tuple", "null", "overflow", "invalid-cache", "nan-cache"],
+)
+def test_checkpoint_load_rejects_invalid_python_rng_without_changing_training_state(tmp_path, python_state):
     torch.set_num_threads(1)
     obs = synthetic_observation()
     config = PPOConfig(train_iters=1, minibatch_size=8, hidden_dim=32)
@@ -551,7 +566,7 @@ def test_checkpoint_load_rejects_invalid_python_rng_before_mutation(tmp_path):
     checkpoint_path = tmp_path / "invalid-python-rng.pt"
     source.save(str(checkpoint_path))
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
-    checkpoint["rng_state"]["python_random"] = (3, (1, 2), None)
+    checkpoint["rng_state"]["python_random"] = python_state
     checkpoint["training_state_sha256"] = _training_state_sha256({
         key: value
         for key, value in checkpoint.items()
@@ -560,6 +575,11 @@ def test_checkpoint_load_rejects_invalid_python_rng_before_mutation(tmp_path):
     torch.save(checkpoint, checkpoint_path)
 
     restored = PPOAgent(obs, len(obs["action_mask"]), config.hidden_dim, config, encoder_type="mlp")
+    restored.optimizer.param_groups[0]["lr"] = 0.123
+    training_before = _training_state_sha256({
+        "model": restored.model.state_dict(),
+        "optimizer": restored.optimizer.state_dict(),
+    })
     torch.manual_seed(271)
     np.random.seed(271)
     random.seed(271)
@@ -570,6 +590,10 @@ def test_checkpoint_load_rejects_invalid_python_rng_before_mutation(tmp_path):
     with pytest.raises(ValueError, match="Unable to load PPO checkpoint"):
         restored.load(str(checkpoint_path))
 
+    assert _training_state_sha256({
+        "model": restored.model.state_dict(),
+        "optimizer": restored.optimizer.state_dict(),
+    }) == training_before
     torch.testing.assert_close(torch.get_rng_state(), torch_before)
     assert random.getstate() == python_before
     numpy_after = np.random.get_state()
