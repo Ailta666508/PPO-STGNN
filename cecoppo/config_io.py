@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import tempfile
 from dataclasses import fields
@@ -16,6 +17,34 @@ ConfigType = TypeVar("ConfigType", EnvConfig, PPOConfig)
 
 class ExperimentConfigError(ValueError):
     """Raised when a serialized experiment configuration is invalid."""
+
+
+def validate_train_config(config: TrainConfig) -> None:
+    """Reject semantically unsafe settings before an experiment is started."""
+    env = config.env
+    ppo = config.ppo
+    if not isinstance(env.seed, int) or isinstance(env.seed, bool) or not 0 <= env.seed < 2**32:
+        raise ExperimentConfigError("env.seed must be an unsigned 32-bit integer")
+    if env.split not in {"train", "validation", "test"}:
+        raise ExperimentConfigError("env.split must be train, validation, or test")
+    if env.reward_mode not in {"dense", "terminal_sparse"}:
+        raise ExperimentConfigError("env.reward_mode must be dense or terminal_sparse")
+    if config.device not in {"cpu", "cuda", "cuda:0"}:
+        raise ExperimentConfigError("device must be cpu, cuda, or cuda:0")
+    positive_ints = {
+        "env.episode_jobs": env.episode_jobs,
+        "env.max_steps_per_episode": env.max_steps_per_episode,
+        "ppo.epochs": ppo.epochs,
+        "ppo.steps_per_epoch": ppo.steps_per_epoch,
+        "ppo.train_iters": ppo.train_iters,
+        "ppo.minibatch_size": ppo.minibatch_size,
+        "ppo.hidden_dim": ppo.hidden_dim,
+    }
+    for name, value in positive_ints.items():
+        if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+            raise ExperimentConfigError(f"{name} must be a positive integer")
+    if not math.isfinite(ppo.lr) or ppo.lr <= 0:
+        raise ExperimentConfigError("ppo.lr must be finite and positive")
 
 
 def _build_section(cls: type[ConfigType], payload: Any, section: str) -> ConfigType:
@@ -41,7 +70,9 @@ def train_config_from_dict(payload: Any) -> TrainConfig:
     values = dict(payload)
     values["env"] = _build_section(EnvConfig, values.get("env", {}), "env")
     values["ppo"] = _build_section(PPOConfig, values.get("ppo", {}), "ppo")
-    return TrainConfig(**values)
+    config = TrainConfig(**values)
+    validate_train_config(config)
+    return config
 
 
 def config_fingerprint(config: TrainConfig) -> str:

@@ -12,10 +12,27 @@ from cecoppo.config_io import (
     load_train_config,
     save_train_config,
     train_config_from_dict,
+    validate_train_config,
 )
 
 
 class ExperimentConfigIoTests(unittest.TestCase):
+    def test_rejects_semantically_unsafe_training_settings(self):
+        config = TrainConfig()
+        for field, value, message in [
+            ("seed", -1, "env.seed"),
+            ("split", "production", "env.split"),
+            ("reward_mode", "unknown", "env.reward_mode"),
+        ]:
+            with self.subTest(field=field):
+                setattr(config.env, field, value)
+                with self.assertRaisesRegex(ExperimentConfigError, message):
+                    validate_train_config(config)
+                config = TrainConfig()
+        config.ppo.lr = 0.0
+        with self.assertRaisesRegex(ExperimentConfigError, "ppo.lr"):
+            validate_train_config(config)
+
     def test_config_changes_reports_actionable_leaf_paths(self):
         reference = TrainConfig()
         candidate = TrainConfig()

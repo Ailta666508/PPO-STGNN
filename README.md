@@ -214,3 +214,7 @@ Resume automation can explicitly approve expected drift, for example
 `--allow env.seed`. Repeat the option for multiple fields. The command exits 0
 only when every difference is approved, reports approved and unapproved changes
 separately, and rejects misspelled allow-list paths.
+
+Loaded JSON configurations are also semantically validated before comparison:
+seed width, split and reward mode, device, positive training dimensions, and
+learning rate are checked so a typo cannot silently start an invalid run.
