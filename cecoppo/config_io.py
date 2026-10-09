@@ -109,6 +109,7 @@ def config_changes(reference: TrainConfig, candidate: TrainConfig) -> dict[str, 
 
 
 def save_train_config(config: TrainConfig, path: str | Path) -> str:
+    validate_train_config(config)
     destination = Path(path)
     # Serialize before touching disk so invalid values cannot truncate a good config.
     content = json.dumps(config.to_dict(), ensure_ascii=False, allow_nan=False, indent=2) + "\n"

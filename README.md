@@ -218,3 +218,8 @@ separately, and rejects misspelled allow-list paths.
 Loaded JSON configurations are also semantically validated before comparison:
 seed width, split and reward mode, device, positive training dimensions, and
 learning rate are checked so a typo cannot silently start an invalid run.
+
+Run `python -m cecoppo.resolve_config partial.json resolved.json` to validate a
+partial configuration, materialize every default into a canonical atomic file,
+and print its fingerprint. The command is data-free and does not import torch;
+its JSON output is explicitly labeled as configuration-only synthetic tooling.
