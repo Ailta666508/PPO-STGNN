@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import math
 import os
 import random
 import tempfile
@@ -120,12 +121,21 @@ def _restore_rng_state(state: Mapping[str, object]) -> None:
         isinstance(value, torch.Tensor) for value in cuda_states
     ):
         raise ValueError("PPO checkpoint contains an invalid CUDA RNG state")
-    if python_state is not None and not isinstance(python_state, tuple):
-        raise ValueError("PPO checkpoint contains an invalid Python RNG state")
-    if python_state is not None:
+    # Older schemas omit this field; an explicit null is not a saved RNG state.
+    if "python_random" in state:
+        if not isinstance(python_state, tuple) or len(python_state) != 3:
+            raise ValueError("PPO checkpoint contains an invalid Python RNG state")
         try:
+            gaussian_cache = python_state[2]
+            if gaussian_cache is not None and (
+                isinstance(gaussian_cache, bool)
+                or not isinstance(gaussian_cache, (int, float))
+                or not math.isfinite(gaussian_cache)
+            ):
+                raise ValueError("Invalid cached Gaussian value")
+            # Check with an isolated generator before changing process RNG state.
             random.Random().setstate(python_state)
-        except (TypeError, ValueError) as error:
+        except (TypeError, ValueError, OverflowError) as error:
             raise ValueError(
                 "PPO checkpoint contains an invalid Python RNG state"
             ) from error
