@@ -33,6 +33,18 @@ class ExperimentConfigIoTests(unittest.TestCase):
         with self.assertRaisesRegex(ExperimentConfigError, "ppo.lr"):
             validate_train_config(config)
 
+    def test_rejects_invalid_checkpoint_schedule_and_directory(self):
+        for field, value, message in [
+            ("eval_episodes", 0, "eval_episodes"),
+            ("save_every", 0, "save_every"),
+            ("checkpoint_dir", "", "checkpoint_dir"),
+        ]:
+            with self.subTest(field=field):
+                config = TrainConfig()
+                setattr(config, field, value)
+                with self.assertRaisesRegex(ExperimentConfigError, message):
+                    validate_train_config(config)
+
     def test_config_changes_reports_actionable_leaf_paths(self):
         reference = TrainConfig()
         candidate = TrainConfig()

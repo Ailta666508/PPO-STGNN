@@ -45,6 +45,12 @@ def validate_train_config(config: TrainConfig) -> None:
             raise ExperimentConfigError(f"{name} must be a positive integer")
     if not math.isfinite(ppo.lr) or ppo.lr <= 0:
         raise ExperimentConfigError("ppo.lr must be finite and positive")
+    if not isinstance(config.eval_episodes, int) or isinstance(config.eval_episodes, bool) or config.eval_episodes <= 0:
+        raise ExperimentConfigError("eval_episodes must be a positive integer")
+    if not isinstance(config.save_every, int) or isinstance(config.save_every, bool) or config.save_every <= 0:
+        raise ExperimentConfigError("save_every must be a positive integer")
+    if not isinstance(config.checkpoint_dir, str) or not config.checkpoint_dir.strip():
+        raise ExperimentConfigError("checkpoint_dir must be a non-empty string")
 
 
 def _build_section(cls: type[ConfigType], payload: Any, section: str) -> ConfigType:
