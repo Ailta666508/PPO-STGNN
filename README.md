@@ -223,3 +223,17 @@ Run `python -m cecoppo.resolve_config partial.json resolved.json` to validate a
 partial configuration, materialize every default into a canonical atomic file,
 and print its fingerprint. The command is data-free and does not import torch;
 its JSON output is explicitly labeled as configuration-only synthetic tooling.
+
+### Deterministic seed plans
+
+Generate a data-free plan with one resolved configuration per seed:
+
+```bash
+python -m cecoppo.plan_runs config.json plans/ --seeds 42,43,44
+```
+
+The command writes `seed-XXXXXXXXXX.json` files plus `seed-plan.json`. Each
+entry records the seed, resolved config filename and 12-character fingerprint.
+The input is validated before any files are written; every seed is unique and
+within the unsigned 32-bit range. This prepares reproducible runs but does not
+train a model or produce benchmark results.
