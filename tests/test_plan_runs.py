@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 from cecoppo.config_io import ExperimentConfigError
-from cecoppo.plan_runs import materialize_seed_plan, parse_seeds
+from cecoppo.plan_runs import materialize_seed_plan, parse_seeds, verify_seed_plan
 
 
 class SeedPlanTests(unittest.TestCase):
@@ -20,6 +20,7 @@ class SeedPlanTests(unittest.TestCase):
             self.assertEqual(json.loads((Path(directory) / 'plans/seed-0000000043.json').read_text())['env']['seed'], 43)
             self.assertEqual(json.loads((Path(directory) / 'plans/seed-plan.json').read_text()), manifest)
             self.assertNotEqual(manifest['seeds'][0]['fingerprint'], manifest['seeds'][1]['fingerprint'])
+            self.assertIsInstance(manifest['source_fingerprint'], str)
 
     def test_cli_reports_data_free_scope(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -43,3 +44,15 @@ class SeedPlanTests(unittest.TestCase):
             with self.assertRaisesRegex(ExperimentConfigError, 'unique'):
                 materialize_seed_plan(Path(directory) / 'missing.json', Path(directory) / 'plans', [1, 1])
             self.assertFalse((Path(directory) / 'plans').exists())
+
+    def test_verifies_plan_and_rejects_tampered_resolved_config(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'source.json'
+            source.write_text(json.dumps({'env': {'seed': 9}}))
+            materialize_seed_plan(source, Path(directory) / 'plans', [42])
+            report = verify_seed_plan(Path(directory) / 'plans')
+            self.assertEqual(report['seeds'][0]['seed'], 42)
+            target = Path(directory) / 'plans/seed-0000000042.json'
+            target.write_text(json.dumps({'env': {'seed': 123}}))
+            with self.assertRaisesRegex(ExperimentConfigError, 'fingerprint mismatch'):
+                verify_seed_plan(Path(directory) / 'plans')

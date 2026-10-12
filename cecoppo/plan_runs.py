@@ -53,7 +53,8 @@ def materialize_seed_plan(config_path: str | Path, destination: str | Path, seed
         raise ExperimentConfigError("seeds must contain at least one unique value")
     if any(isinstance(seed, bool) or not isinstance(seed, int) or not 0 <= seed < 2**32 for seed in seeds):
         raise ExperimentConfigError("seeds must be unsigned 32-bit integers")
-    config = load_train_config(config_path)
+    source = Path(config_path)
+    config = load_train_config(source)
     output = Path(destination)
     entries = []
     for seed in seeds:
@@ -63,19 +64,57 @@ def materialize_seed_plan(config_path: str | Path, destination: str | Path, seed
         target = output / filename
         fingerprint = save_train_config(resolved, target)
         entries.append({"seed": seed, "file": filename, "fingerprint": fingerprint})
-    manifest = {"schema_version": 1, "source": str(Path(config_path)), "seeds": entries}
+    manifest = {
+        "schema_version": 1,
+        "source": str(source),
+        "source_fingerprint": config_fingerprint(config),
+        "seeds": entries,
+    }
     write_atomic_json(output / 'seed-plan.json', manifest)
     return manifest
 
 
+def verify_seed_plan(destination: str | Path) -> dict:
+    """Check that a materialized plan still matches each resolved config file."""
+    directory = Path(destination)
+    try:
+        manifest = json.loads((directory / 'seed-plan.json').read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ExperimentConfigError(f"Unable to read seed plan: {directory}") from error
+    if not isinstance(manifest, dict) or manifest.get('schema_version') != 1 or not isinstance(manifest.get('seeds'), list):
+        raise ExperimentConfigError('Unsupported seed plan schema')
+    verified = []
+    seen = set()
+    for entry in manifest['seeds']:
+        if not isinstance(entry, dict) or not isinstance(entry.get('seed'), int) or entry['seed'] in seen:
+            raise ExperimentConfigError('Seed plan contains invalid or duplicate seeds')
+        filename, expected = entry.get('file'), entry.get('fingerprint')
+        if not isinstance(filename, str) or Path(filename).name != filename or not isinstance(expected, str):
+            raise ExperimentConfigError('Seed plan contains an unsafe file reference')
+        actual = config_fingerprint(load_train_config(directory / filename))
+        if actual != expected:
+            raise ExperimentConfigError(f'Seed plan fingerprint mismatch: {filename}')
+        seen.add(entry['seed'])
+        verified.append({'seed': entry['seed'], 'file': filename, 'fingerprint': actual})
+    return {'schema_version': 1, 'source_fingerprint': manifest.get('source_fingerprint'), 'seeds': verified}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('source')
-    parser.add_argument('destination')
-    parser.add_argument('--seeds', required=True, help='comma-separated unsigned 32-bit seeds')
+    parser.add_argument('source', nargs='?')
+    parser.add_argument('destination', nargs='?')
+    parser.add_argument('--seeds', help='comma-separated unsigned 32-bit seeds')
+    parser.add_argument('--verify', action='store_true', help='verify an existing plan in destination')
     args = parser.parse_args()
     try:
-        manifest = materialize_seed_plan(args.source, args.destination, parse_seeds(args.seeds))
+        if args.verify:
+            if args.source is not None:
+                parser.error('--verify accepts only a destination')
+            manifest = verify_seed_plan(args.destination)
+        else:
+            if args.source is None or args.destination is None or args.seeds is None:
+                parser.error('source and destination are required unless --verify is used')
+            manifest = materialize_seed_plan(args.source, args.destination, parse_seeds(args.seeds))
     except ExperimentConfigError as error:
         parser.error(str(error))
     print(json.dumps({"synthetic": True, "scope": "configuration plan only; no training or benchmark", "output": str(Path(args.destination) / 'seed-plan.json'), "seeds": manifest['seeds']}, ensure_ascii=False, indent=2))
