@@ -56,3 +56,12 @@ class SeedPlanTests(unittest.TestCase):
             target.write_text(json.dumps({'env': {'seed': 123}}))
             with self.assertRaisesRegex(ExperimentConfigError, 'fingerprint mismatch'):
                 verify_seed_plan(Path(directory) / 'plans')
+
+    def test_cli_verifies_plan_using_single_positional_destination(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'source.json'
+            plans = Path(directory) / 'plans'
+            source.write_text(json.dumps({'env': {'seed': 9}}))
+            materialize_seed_plan(source, plans, [42])
+            result = subprocess.run([sys.executable, '-m', 'cecoppo.plan_runs', '--verify', str(plans)], capture_output=True, text=True, check=True)
+            self.assertEqual(json.loads(result.stdout)['seeds'][0]['seed'], 42)

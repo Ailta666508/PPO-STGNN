@@ -108,16 +108,18 @@ def main() -> None:
     args = parser.parse_args()
     try:
         if args.verify:
-            if args.source is not None:
-                parser.error('--verify accepts only a destination')
-            manifest = verify_seed_plan(args.destination)
+            destination = args.destination or args.source
+            if destination is None or args.destination is not None:
+                parser.error('--verify accepts exactly one destination')
+            manifest = verify_seed_plan(destination)
         else:
             if args.source is None or args.destination is None or args.seeds is None:
                 parser.error('source and destination are required unless --verify is used')
             manifest = materialize_seed_plan(args.source, args.destination, parse_seeds(args.seeds))
     except ExperimentConfigError as error:
         parser.error(str(error))
-    print(json.dumps({"synthetic": True, "scope": "configuration plan only; no training or benchmark", "output": str(Path(args.destination) / 'seed-plan.json'), "seeds": manifest['seeds']}, ensure_ascii=False, indent=2))
+    output = args.destination or args.source
+    print(json.dumps({"synthetic": True, "scope": "configuration plan only; no training or benchmark", "output": str(Path(output) / 'seed-plan.json'), "seeds": manifest['seeds']}, ensure_ascii=False, indent=2))
 
 
 if __name__ == '__main__':
