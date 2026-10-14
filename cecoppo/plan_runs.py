@@ -91,7 +91,10 @@ def verify_seed_plan(destination: str | Path) -> dict:
         filename, expected = entry.get('file'), entry.get('fingerprint')
         if not isinstance(filename, str) or Path(filename).name != filename or not isinstance(expected, str):
             raise ExperimentConfigError('Seed plan contains an unsafe file reference')
-        actual = config_fingerprint(load_train_config(directory / filename))
+        resolved = load_train_config(directory / filename)
+        if resolved.env.seed != entry['seed']:
+            raise ExperimentConfigError(f'Seed plan entry does not match resolved config: {filename}')
+        actual = config_fingerprint(resolved)
         if actual != expected:
             raise ExperimentConfigError(f'Seed plan fingerprint mismatch: {filename}')
         seen.add(entry['seed'])

@@ -53,7 +53,7 @@ class SeedPlanTests(unittest.TestCase):
             report = verify_seed_plan(Path(directory) / 'plans')
             self.assertEqual(report['seeds'][0]['seed'], 42)
             target = Path(directory) / 'plans/seed-0000000042.json'
-            target.write_text(json.dumps({'env': {'seed': 123}}))
+            target.write_text(json.dumps({'env': {'seed': 42}, 'ppo': {'lr': 0.9}}))
             with self.assertRaisesRegex(ExperimentConfigError, 'fingerprint mismatch'):
                 verify_seed_plan(Path(directory) / 'plans')
 
@@ -65,3 +65,16 @@ class SeedPlanTests(unittest.TestCase):
             materialize_seed_plan(source, plans, [42])
             result = subprocess.run([sys.executable, '-m', 'cecoppo.plan_runs', '--verify', str(plans)], capture_output=True, text=True, check=True)
             self.assertEqual(json.loads(result.stdout)['seeds'][0]['seed'], 42)
+
+    def test_verifier_rejects_manifest_seed_that_disagrees_with_config(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'source.json'
+            plans = Path(directory) / 'plans'
+            source.write_text(json.dumps({'env': {'seed': 9}}))
+            materialize_seed_plan(source, plans, [42])
+            manifest_path = plans / 'seed-plan.json'
+            manifest = json.loads(manifest_path.read_text())
+            manifest['seeds'][0]['seed'] = 43
+            manifest_path.write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(ExperimentConfigError, 'does not match'):
+                verify_seed_plan(plans)
