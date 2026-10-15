@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import json
 import os
 import tempfile
@@ -48,6 +49,11 @@ def write_atomic_json(path: Path, payload: object) -> None:
             temporary.unlink(missing_ok=True)
 
 
+def _plan_fingerprint(entries: list[dict]) -> str:
+    canonical = json.dumps(entries, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
+    return hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]
+
+
 def materialize_seed_plan(config_path: str | Path, destination: str | Path, seeds: list[int]) -> dict:
     if not seeds or len(set(seeds)) != len(seeds):
         raise ExperimentConfigError("seeds must contain at least one unique value")
@@ -68,6 +74,7 @@ def materialize_seed_plan(config_path: str | Path, destination: str | Path, seed
         "schema_version": 1,
         "source": str(source),
         "source_fingerprint": config_fingerprint(config),
+        "plan_fingerprint": _plan_fingerprint(entries),
         "seeds": entries,
     }
     write_atomic_json(output / 'seed-plan.json', manifest)
@@ -99,7 +106,9 @@ def verify_seed_plan(destination: str | Path) -> dict:
             raise ExperimentConfigError(f'Seed plan fingerprint mismatch: {filename}')
         seen.add(entry['seed'])
         verified.append({'seed': entry['seed'], 'file': filename, 'fingerprint': actual})
-    return {'schema_version': 1, 'source_fingerprint': manifest.get('source_fingerprint'), 'seeds': verified}
+    if manifest.get('plan_fingerprint') != _plan_fingerprint(verified):
+        raise ExperimentConfigError('Seed plan manifest fingerprint mismatch')
+    return {'schema_version': 1, 'source_fingerprint': manifest.get('source_fingerprint'), 'plan_fingerprint': manifest['plan_fingerprint'], 'seeds': verified}
 
 
 def main() -> None:

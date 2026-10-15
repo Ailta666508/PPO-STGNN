@@ -21,6 +21,7 @@ class SeedPlanTests(unittest.TestCase):
             self.assertEqual(json.loads((Path(directory) / 'plans/seed-plan.json').read_text()), manifest)
             self.assertNotEqual(manifest['seeds'][0]['fingerprint'], manifest['seeds'][1]['fingerprint'])
             self.assertIsInstance(manifest['source_fingerprint'], str)
+            self.assertIsInstance(manifest['plan_fingerprint'], str)
 
     def test_cli_reports_data_free_scope(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -77,4 +78,17 @@ class SeedPlanTests(unittest.TestCase):
             manifest['seeds'][0]['seed'] = 43
             manifest_path.write_text(json.dumps(manifest))
             with self.assertRaisesRegex(ExperimentConfigError, 'does not match'):
+                verify_seed_plan(plans)
+
+    def test_verifier_rejects_tampered_plan_fingerprint(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'source.json'
+            plans = Path(directory) / 'plans'
+            source.write_text(json.dumps({'env': {'seed': 9}}))
+            materialize_seed_plan(source, plans, [42])
+            manifest_path = plans / 'seed-plan.json'
+            manifest = json.loads(manifest_path.read_text())
+            manifest['plan_fingerprint'] = 'tampered'
+            manifest_path.write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(ExperimentConfigError, 'manifest fingerprint'):
                 verify_seed_plan(plans)
