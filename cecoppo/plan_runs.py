@@ -88,7 +88,11 @@ def verify_seed_plan(destination: str | Path) -> dict:
         manifest = json.loads((directory / 'seed-plan.json').read_text(encoding='utf-8'))
     except (OSError, json.JSONDecodeError) as error:
         raise ExperimentConfigError(f"Unable to read seed plan: {directory}") from error
-    if not isinstance(manifest, dict) or manifest.get('schema_version') != 1 or not isinstance(manifest.get('seeds'), list):
+    source_fingerprint = manifest.get('source_fingerprint') if isinstance(manifest, dict) else None
+    if (not isinstance(manifest, dict) or manifest.get('schema_version') != 1
+            or not isinstance(manifest.get('seeds'), list)
+            or not isinstance(source_fingerprint, str) or len(source_fingerprint) != 12
+            or any(char not in '0123456789abcdef' for char in source_fingerprint)):
         raise ExperimentConfigError('Unsupported seed plan schema')
     verified = []
     seen = set()
