@@ -72,7 +72,7 @@ def materialize_seed_plan(config_path: str | Path, destination: str | Path, seed
         entries.append({"seed": seed, "file": filename, "fingerprint": fingerprint})
     manifest = {
         "schema_version": 1,
-        "source": str(source),
+        "source": source.name,
         "source_fingerprint": config_fingerprint(config),
         "plan_fingerprint": _plan_fingerprint(entries),
         "seeds": entries,

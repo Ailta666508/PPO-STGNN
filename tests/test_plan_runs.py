@@ -22,6 +22,8 @@ class SeedPlanTests(unittest.TestCase):
             self.assertNotEqual(manifest['seeds'][0]['fingerprint'], manifest['seeds'][1]['fingerprint'])
             self.assertIsInstance(manifest['source_fingerprint'], str)
             self.assertIsInstance(manifest['plan_fingerprint'], str)
+            self.assertEqual(manifest['source'], 'source.json')
+            self.assertNotIn(directory, json.dumps(manifest))
 
     def test_cli_reports_data_free_scope(self):
         with tempfile.TemporaryDirectory() as directory:
