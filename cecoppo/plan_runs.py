@@ -75,6 +75,7 @@ def materialize_seed_plan(config_path: str | Path, destination: str | Path, seed
         "source": source.name,
         "source_fingerprint": config_fingerprint(config),
         "plan_fingerprint": _plan_fingerprint(entries),
+        "seed_count": len(entries),
         "seeds": entries,
     }
     write_atomic_json(output / 'seed-plan.json', manifest)
@@ -91,6 +92,7 @@ def verify_seed_plan(destination: str | Path) -> dict:
     source_fingerprint = manifest.get('source_fingerprint') if isinstance(manifest, dict) else None
     if (not isinstance(manifest, dict) or manifest.get('schema_version') != 1
             or not isinstance(manifest.get('seeds'), list)
+            or manifest.get('seed_count') != len(manifest.get('seeds', []))
             or not isinstance(source_fingerprint, str) or len(source_fingerprint) != 12
             or any(char not in '0123456789abcdef' for char in source_fingerprint)):
         raise ExperimentConfigError('Unsupported seed plan schema')
