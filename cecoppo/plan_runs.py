@@ -112,6 +112,8 @@ def verify_seed_plan(destination: str | Path) -> dict:
             raise ExperimentConfigError(f'Seed plan fingerprint mismatch: {filename}')
         seen.add(entry['seed'])
         verified.append({'seed': entry['seed'], 'file': filename, 'fingerprint': actual})
+    if [entry['seed'] for entry in verified] != sorted(entry['seed'] for entry in verified):
+        raise ExperimentConfigError('Seed plan entries must be sorted by seed')
     if manifest.get('plan_fingerprint') != _plan_fingerprint(verified):
         raise ExperimentConfigError('Seed plan manifest fingerprint mismatch')
     return {'schema_version': 1, 'source_fingerprint': manifest.get('source_fingerprint'), 'plan_fingerprint': manifest['plan_fingerprint'], 'seeds': verified}
