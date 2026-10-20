@@ -93,7 +93,7 @@ class SeedPlanTests(unittest.TestCase):
             manifest = json.loads(manifest_path.read_text())
             manifest['plan_fingerprint'] = 'tampered'
             manifest_path.write_text(json.dumps(manifest))
-            with self.assertRaisesRegex(ExperimentConfigError, 'manifest fingerprint'):
+            with self.assertRaisesRegex(ExperimentConfigError, 'Unsupported seed plan schema'):
                 verify_seed_plan(plans)
 
     def test_verifier_rejects_missing_source_fingerprint(self):
@@ -125,4 +125,15 @@ class SeedPlanTests(unittest.TestCase):
             manifest_path = plans / 'seed-plan.json'; manifest = json.loads(manifest_path.read_text())
             manifest['seeds'].reverse(); manifest_path.write_text(json.dumps(manifest))
             with self.assertRaisesRegex(ExperimentConfigError, 'sorted'):
+                verify_seed_plan(plans)
+
+    def test_verifier_rejects_unsafe_source_and_noncanonical_plan_fingerprint(self):
+        with tempfile.TemporaryDirectory() as directory:
+            plans = Path(directory) / 'plans'; plans.mkdir()
+            (plans / 'seed-plan.json').write_text(json.dumps({
+                'schema_version': 1, 'source': '../config.json',
+                'source_fingerprint': '0' * 12, 'plan_fingerprint': '0' * 15,
+                'seed_count': 0, 'seeds': [],
+            }))
+            with self.assertRaisesRegex(ExperimentConfigError, 'Unsupported seed plan schema'):
                 verify_seed_plan(plans)

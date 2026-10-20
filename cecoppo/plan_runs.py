@@ -93,6 +93,11 @@ def verify_seed_plan(destination: str | Path) -> dict:
     if (not isinstance(manifest, dict) or manifest.get('schema_version') != 1
             or not isinstance(manifest.get('seeds'), list)
             or manifest.get('seed_count') != len(manifest.get('seeds', []))
+            or not isinstance(manifest.get('source'), str)
+            or Path(manifest.get('source', '')).name != manifest.get('source')
+            or not isinstance(manifest.get('plan_fingerprint'), str)
+            or len(manifest.get('plan_fingerprint', '')) != 16
+            or any(char not in '0123456789abcdef' for char in manifest.get('plan_fingerprint', ''))
             or not isinstance(source_fingerprint, str) or len(source_fingerprint) != 12
             or any(char not in '0123456789abcdef' for char in source_fingerprint)):
         raise ExperimentConfigError('Unsupported seed plan schema')
