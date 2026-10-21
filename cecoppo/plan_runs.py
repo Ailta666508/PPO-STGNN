@@ -101,6 +101,14 @@ def verify_seed_plan(destination: str | Path) -> dict:
             or not isinstance(source_fingerprint, str) or len(source_fingerprint) != 12
             or any(char not in '0123456789abcdef' for char in source_fingerprint)):
         raise ExperimentConfigError('Unsupported seed plan schema')
+    source_path = directory / manifest['source']
+    if source_path.exists():
+        try:
+            actual_source_fingerprint = config_fingerprint(load_train_config(source_path))
+        except ExperimentConfigError as error:
+            raise ExperimentConfigError('Seed plan source config is invalid') from error
+        if actual_source_fingerprint != source_fingerprint:
+            raise ExperimentConfigError('Seed plan source fingerprint mismatch')
     verified = []
     seen = set()
     for entry in manifest['seeds']:

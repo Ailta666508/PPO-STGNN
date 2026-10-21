@@ -137,3 +137,12 @@ class SeedPlanTests(unittest.TestCase):
             }))
             with self.assertRaisesRegex(ExperimentConfigError, 'Unsupported seed plan schema'):
                 verify_seed_plan(plans)
+
+    def test_verifier_detects_tampered_source_when_it_is_available(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'source.json'; plans = Path(directory) / 'plans'
+            source.write_text(json.dumps({'env': {'seed': 9}}))
+            materialize_seed_plan(source, plans, [42])
+            (plans / 'source.json').write_text(json.dumps({'env': {'seed': 10}}))
+            with self.assertRaisesRegex(ExperimentConfigError, 'source fingerprint'):
+                verify_seed_plan(plans)
