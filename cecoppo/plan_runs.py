@@ -117,6 +117,9 @@ def verify_seed_plan(destination: str | Path) -> dict:
         filename, expected = entry.get('file'), entry.get('fingerprint')
         if not isinstance(filename, str) or Path(filename).name != filename or not isinstance(expected, str):
             raise ExperimentConfigError('Seed plan contains an unsafe file reference')
+        expected_filename = f"seed-{entry['seed']:010d}.json"
+        if filename != expected_filename:
+            raise ExperimentConfigError(f'Seed plan filename is not canonical: {filename}')
         resolved = load_train_config(directory / filename)
         if resolved.env.seed != entry['seed']:
             raise ExperimentConfigError(f'Seed plan entry does not match resolved config: {filename}')

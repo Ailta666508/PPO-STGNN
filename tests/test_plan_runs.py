@@ -79,6 +79,8 @@ class SeedPlanTests(unittest.TestCase):
             manifest_path = plans / 'seed-plan.json'
             manifest = json.loads(manifest_path.read_text())
             manifest['seeds'][0]['seed'] = 43
+            (plans / 'seed-0000000042.json').rename(plans / 'seed-0000000043.json')
+            manifest['seeds'][0]['file'] = 'seed-0000000043.json'
             manifest_path.write_text(json.dumps(manifest))
             with self.assertRaisesRegex(ExperimentConfigError, 'does not match'):
                 verify_seed_plan(plans)
@@ -145,4 +147,15 @@ class SeedPlanTests(unittest.TestCase):
             materialize_seed_plan(source, plans, [42])
             (plans / 'source.json').write_text(json.dumps({'env': {'seed': 10}}))
             with self.assertRaisesRegex(ExperimentConfigError, 'source fingerprint'):
+                verify_seed_plan(plans)
+
+    def test_verifier_rejects_noncanonical_seed_filename(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'source.json'; plans = Path(directory) / 'plans'
+            source.write_text(json.dumps({'env': {'seed': 9}}))
+            materialize_seed_plan(source, plans, [42])
+            manifest_path = plans / 'seed-plan.json'; manifest = json.loads(manifest_path.read_text())
+            manifest['seeds'][0]['file'] = 'seed-42.json'
+            manifest_path.write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(ExperimentConfigError, 'canonical'):
                 verify_seed_plan(plans)
