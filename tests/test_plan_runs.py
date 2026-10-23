@@ -159,3 +159,12 @@ class SeedPlanTests(unittest.TestCase):
             manifest_path.write_text(json.dumps(manifest))
             with self.assertRaisesRegex(ExperimentConfigError, 'canonical'):
                 verify_seed_plan(plans)
+
+    def test_verifier_rejects_stale_materialized_seed_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'source.json'; plans = Path(directory) / 'plans'
+            source.write_text(json.dumps({'env': {'seed': 9}}))
+            materialize_seed_plan(source, plans, [42])
+            (plans / 'seed-0000000043.json').write_text((plans / 'seed-0000000042.json').read_text())
+            with self.assertRaisesRegex(ExperimentConfigError, 'unexpected materialized files'):
+                verify_seed_plan(plans)

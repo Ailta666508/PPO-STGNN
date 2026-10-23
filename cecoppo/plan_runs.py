@@ -128,6 +128,15 @@ def verify_seed_plan(destination: str | Path) -> dict:
             raise ExperimentConfigError(f'Seed plan fingerprint mismatch: {filename}')
         seen.add(entry['seed'])
         verified.append({'seed': entry['seed'], 'file': filename, 'fingerprint': actual})
+    expected_files = {entry['file'] for entry in verified}
+    unexpected_files = sorted(
+        path.name for path in directory.glob('seed-*.json')
+        if path.name != 'seed-plan.json' and path.name not in expected_files
+    )
+    if unexpected_files:
+        raise ExperimentConfigError(
+            f'Seed plan contains unexpected materialized files: {", ".join(unexpected_files)}'
+        )
     if [entry['seed'] for entry in verified] != sorted(entry['seed'] for entry in verified):
         raise ExperimentConfigError('Seed plan entries must be sorted by seed')
     if manifest.get('plan_fingerprint') != _plan_fingerprint(verified):
