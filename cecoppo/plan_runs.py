@@ -62,6 +62,15 @@ def materialize_seed_plan(config_path: str | Path, destination: str | Path, seed
     source = Path(config_path)
     config = load_train_config(source)
     output = Path(destination)
+    expected_files = {f"seed-{seed:010d}.json" for seed in seeds}
+    stale_files = sorted(
+        path.name for path in output.glob('seed-*.json')
+        if path.name != 'seed-plan.json' and path.name not in expected_files
+    )
+    if stale_files:
+        raise ExperimentConfigError(
+            f'Refusing to materialize beside stale seed files: {", ".join(stale_files)}'
+        )
     entries = []
     for seed in seeds:
         resolved = copy.deepcopy(config)

@@ -168,3 +168,15 @@ class SeedPlanTests(unittest.TestCase):
             (plans / 'seed-0000000043.json').write_text((plans / 'seed-0000000042.json').read_text())
             with self.assertRaisesRegex(ExperimentConfigError, 'unexpected materialized files'):
                 verify_seed_plan(plans)
+
+    def test_materializer_refuses_to_extend_a_directory_with_stale_seed_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'source.json'; plans = Path(directory) / 'plans'
+            source.write_text(json.dumps({'env': {'seed': 9}}))
+            plans.mkdir()
+            stale = plans / 'seed-0000000043.json'
+            stale.write_text('{}')
+            with self.assertRaisesRegex(ExperimentConfigError, 'stale seed files'):
+                materialize_seed_plan(source, plans, [42])
+            self.assertEqual(stale.read_text(), '{}')
+            self.assertFalse((plans / 'seed-0000000042.json').exists())
