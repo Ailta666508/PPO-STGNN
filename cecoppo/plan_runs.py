@@ -27,7 +27,7 @@ def parse_seeds(raw: str) -> list[int]:
         values.append(seed)
     if not values or len(set(values)) != len(values):
         raise ExperimentConfigError("seeds must contain at least one unique value")
-    return values
+    return sorted(values)
 
 
 def write_atomic_json(path: Path, payload: object) -> None:
@@ -59,6 +59,7 @@ def materialize_seed_plan(config_path: str | Path, destination: str | Path, seed
         raise ExperimentConfigError("seeds must contain at least one unique value")
     if any(isinstance(seed, bool) or not isinstance(seed, int) or not 0 <= seed < 2**32 for seed in seeds):
         raise ExperimentConfigError("seeds must be unsigned 32-bit integers")
+    seeds = sorted(seeds)
     source = Path(config_path)
     config = load_train_config(source)
     output = Path(destination)

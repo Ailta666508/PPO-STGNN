@@ -42,6 +42,15 @@ class SeedPlanTests(unittest.TestCase):
             parse_seeds('-1')
         with self.assertRaisesRegex(ExperimentConfigError, 'unsigned'):
             parse_seeds('4294967296')
+        self.assertEqual(parse_seeds('43,2,42'), [2, 42, 43])
+
+    def test_materializer_canonicalizes_unsorted_programmatic_seeds(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'source.json'; plans = Path(directory) / 'plans'
+            source.write_text(json.dumps({'env': {'seed': 9}}))
+            manifest = materialize_seed_plan(source, plans, [43, 42])
+            self.assertEqual([entry['seed'] for entry in manifest['seeds']], [42, 43])
+            self.assertEqual(verify_seed_plan(plans)['seeds'], manifest['seeds'])
 
     def test_rejects_duplicate_seed_plan_before_creating_directory(self):
         with tempfile.TemporaryDirectory() as directory:
