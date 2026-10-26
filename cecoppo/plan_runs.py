@@ -122,7 +122,9 @@ def verify_seed_plan(destination: str | Path) -> dict:
     verified = []
     seen = set()
     for entry in manifest['seeds']:
-        if not isinstance(entry, dict) or not isinstance(entry.get('seed'), int) or entry['seed'] in seen:
+        if (not isinstance(entry, dict) or isinstance(entry.get('seed'), bool)
+                or not isinstance(entry.get('seed'), int) or not 0 <= entry['seed'] < 2**32
+                or entry['seed'] in seen):
             raise ExperimentConfigError('Seed plan contains invalid or duplicate seeds')
         filename, expected = entry.get('file'), entry.get('fingerprint')
         if not isinstance(filename, str) or Path(filename).name != filename or not isinstance(expected, str):
