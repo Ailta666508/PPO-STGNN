@@ -181,6 +181,15 @@ class SeedPlanTests(unittest.TestCase):
             with self.assertRaisesRegex(ExperimentConfigError, 'canonical'):
                 verify_seed_plan(plans)
 
+    def test_verifier_rejects_noncanonical_entry_fingerprint(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'source.json'; plans = Path(directory) / 'plans'
+            source.write_text(json.dumps({'env': {'seed': 9}})); materialize_seed_plan(source, plans, [42])
+            manifest_path = plans / 'seed-plan.json'; manifest = json.loads(manifest_path.read_text())
+            manifest['seeds'][0]['fingerprint'] = 'not-a-fingerprint'; manifest_path.write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(ExperimentConfigError, 'unsafe file reference'):
+                verify_seed_plan(plans)
+
     def test_verifier_rejects_stale_materialized_seed_files(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / 'source.json'; plans = Path(directory) / 'plans'

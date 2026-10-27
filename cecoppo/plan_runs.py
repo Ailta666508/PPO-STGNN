@@ -127,7 +127,9 @@ def verify_seed_plan(destination: str | Path) -> dict:
                 or entry['seed'] in seen):
             raise ExperimentConfigError('Seed plan contains invalid or duplicate seeds')
         filename, expected = entry.get('file'), entry.get('fingerprint')
-        if not isinstance(filename, str) or Path(filename).name != filename or not isinstance(expected, str):
+        if (not isinstance(filename, str) or Path(filename).name != filename
+                or not isinstance(expected, str) or len(expected) != 12
+                or any(char not in '0123456789abcdef' for char in expected)):
             raise ExperimentConfigError('Seed plan contains an unsafe file reference')
         expected_filename = f"seed-{entry['seed']:010d}.json"
         if filename != expected_filename:
