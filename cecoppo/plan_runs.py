@@ -19,7 +19,7 @@ def parse_seeds(raw: str) -> list[int]:
     values = []
     for token in raw.split(','):
         token = token.strip()
-        if not token or not token.isdigit():
+        if not token or not token.isascii() or not token.isdecimal():
             raise ExperimentConfigError("seeds must be comma-separated unsigned integers")
         seed = int(token)
         if seed >= 2**32:

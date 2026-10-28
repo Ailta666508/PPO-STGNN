@@ -42,6 +42,8 @@ class SeedPlanTests(unittest.TestCase):
             parse_seeds('-1')
         with self.assertRaisesRegex(ExperimentConfigError, 'unsigned'):
             parse_seeds('4294967296')
+        with self.assertRaisesRegex(ExperimentConfigError, 'unsigned'):
+            parse_seeds('４２')
         self.assertEqual(parse_seeds('43,2,42'), [2, 42, 43])
 
     def test_materializer_canonicalizes_unsorted_programmatic_seeds(self):
