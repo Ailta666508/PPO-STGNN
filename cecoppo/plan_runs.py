@@ -102,6 +102,7 @@ def verify_seed_plan(destination: str | Path) -> dict:
     source_fingerprint = manifest.get('source_fingerprint') if isinstance(manifest, dict) else None
     if (not isinstance(manifest, dict) or manifest.get('schema_version') != 1
             or not isinstance(manifest.get('seeds'), list)
+            or isinstance(manifest.get('seed_count'), bool)
             or manifest.get('seed_count') != len(manifest.get('seeds', []))
             or not isinstance(manifest.get('source'), str)
             or Path(manifest.get('source', '')).name != manifest.get('source')
