@@ -106,6 +106,7 @@ def verify_seed_plan(destination: str | Path) -> dict:
             or manifest.get('seed_count') != len(manifest.get('seeds', []))
             or not isinstance(manifest.get('source'), str) or not manifest.get('source')
             or Path(manifest.get('source', '')).name != manifest.get('source')
+            or not manifest.get('seeds')
             or not isinstance(manifest.get('plan_fingerprint'), str)
             or len(manifest.get('plan_fingerprint', '')) != 16
             or any(char not in '0123456789abcdef' for char in manifest.get('plan_fingerprint', ''))

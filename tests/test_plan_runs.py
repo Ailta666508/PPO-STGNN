@@ -131,6 +131,17 @@ class SeedPlanTests(unittest.TestCase):
             with self.assertRaisesRegex(ExperimentConfigError, 'Unsupported seed plan schema'):
                 verify_seed_plan(plans)
 
+    def test_verifier_rejects_empty_seed_plan(self):
+        with tempfile.TemporaryDirectory() as directory:
+            plans = Path(directory) / 'plans'; plans.mkdir()
+            (plans / 'seed-plan.json').write_text(json.dumps({
+                'schema_version': 1, 'source': 'source.json',
+                'source_fingerprint': '0' * 12, 'plan_fingerprint': '0' * 16,
+                'seed_count': 0, 'seeds': [],
+            }))
+            with self.assertRaisesRegex(ExperimentConfigError, 'Unsupported seed plan schema'):
+                verify_seed_plan(plans)
+
     def test_verifier_rejects_boolean_seed_count(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / 'source.json'; plans = Path(directory) / 'plans'
