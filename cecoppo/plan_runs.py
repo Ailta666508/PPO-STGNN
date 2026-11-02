@@ -100,7 +100,8 @@ def verify_seed_plan(destination: str | Path) -> dict:
     except (OSError, json.JSONDecodeError) as error:
         raise ExperimentConfigError(f"Unable to read seed plan: {directory}") from error
     source_fingerprint = manifest.get('source_fingerprint') if isinstance(manifest, dict) else None
-    if (not isinstance(manifest, dict) or manifest.get('schema_version') != 1
+    expected_manifest_fields = {'schema_version', 'source', 'source_fingerprint', 'plan_fingerprint', 'seed_count', 'seeds'}
+    if (not isinstance(manifest, dict) or set(manifest) != expected_manifest_fields or manifest.get('schema_version') != 1
             or not isinstance(manifest.get('seeds'), list)
             or isinstance(manifest.get('seed_count'), bool)
             or manifest.get('seed_count') != len(manifest.get('seeds', []))
