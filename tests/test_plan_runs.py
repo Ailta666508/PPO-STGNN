@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -217,6 +218,23 @@ class SeedPlanTests(unittest.TestCase):
             materialize_seed_plan(source, plans, [42])
             (plans / 'source.json').write_text(json.dumps({'env': {'seed': 10}}))
             with self.assertRaisesRegex(ExperimentConfigError, 'source fingerprint'):
+                verify_seed_plan(plans)
+
+    @unittest.skipUnless(hasattr(os, 'symlink'), 'symbolic links unavailable')
+    def test_verifier_rejects_symbolic_link_seed_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'source.json'; plans = Path(directory) / 'plans'
+            source.write_text(json.dumps({'env': {'seed': 9}}))
+            materialize_seed_plan(source, plans, [42])
+            target = plans / 'seed-0000000042.json'
+            real = plans / 'seed-real.json'
+            real.write_text(target.read_text())
+            target.unlink()
+            try:
+                target.symlink_to(real.name)
+            except OSError as error:
+                self.skipTest(f'symbolic links unavailable: {error}')
+            with self.assertRaisesRegex(ExperimentConfigError, 'symbolic link'):
                 verify_seed_plan(plans)
 
     def test_verifier_rejects_noncanonical_seed_filename(self):

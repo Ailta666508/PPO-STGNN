@@ -116,6 +116,8 @@ def verify_seed_plan(destination: str | Path) -> dict:
             or any(char not in '0123456789abcdef' for char in source_fingerprint)):
         raise ExperimentConfigError('Unsupported seed plan schema')
     source_path = directory / manifest['source']
+    if source_path.is_symlink():
+        raise ExperimentConfigError('Seed plan source must not be a symbolic link')
     if source_path.exists():
         try:
             actual_source_fingerprint = config_fingerprint(load_train_config(source_path))
@@ -138,7 +140,10 @@ def verify_seed_plan(destination: str | Path) -> dict:
         expected_filename = f"seed-{entry['seed']:010d}.json"
         if filename != expected_filename:
             raise ExperimentConfigError(f'Seed plan filename is not canonical: {filename}')
-        resolved = load_train_config(directory / filename)
+        seed_path = directory / filename
+        if seed_path.is_symlink():
+            raise ExperimentConfigError(f'Seed plan file must not be a symbolic link: {filename}')
+        resolved = load_train_config(seed_path)
         if resolved.env.seed != entry['seed']:
             raise ExperimentConfigError(f'Seed plan entry does not match resolved config: {filename}')
         actual = config_fingerprint(resolved)
