@@ -277,3 +277,15 @@ class SeedPlanTests(unittest.TestCase):
                 materialize_seed_plan(source, plans, [42])
             self.assertEqual(stale.read_text(), '{}')
             self.assertFalse((plans / 'seed-0000000042.json').exists())
+
+    @unittest.skipUnless(hasattr(os, 'symlink'), 'symbolic links unavailable')
+    def test_materializer_rejects_symbolic_link_destination(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'source.json'; source.write_text(json.dumps({'env': {'seed': 9}}))
+            plans = Path(directory) / 'plans'; real = Path(directory) / 'real-plans'; real.mkdir()
+            try:
+                plans.symlink_to(real, target_is_directory=True)
+            except OSError as error:
+                self.skipTest(f'symbolic links unavailable: {error}')
+            with self.assertRaisesRegex(ExperimentConfigError, 'destination'):
+                materialize_seed_plan(source, plans, [42])
