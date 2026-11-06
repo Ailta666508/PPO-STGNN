@@ -61,6 +61,8 @@ def materialize_seed_plan(config_path: str | Path, destination: str | Path, seed
         raise ExperimentConfigError("seeds must be unsigned 32-bit integers")
     seeds = sorted(seeds)
     source = Path(config_path)
+    if source.is_symlink():
+        raise ExperimentConfigError('Seed plan source must not be a symbolic link')
     config = load_train_config(source)
     output = Path(destination)
     if output.is_symlink():
