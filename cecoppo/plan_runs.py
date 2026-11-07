@@ -54,6 +54,14 @@ def _plan_fingerprint(entries: list[dict]) -> str:
     return hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]
 
 
+def _reject_symlink_components(path: Path, label: str) -> None:
+    current = path
+    while current != current.parent:
+        if current.is_symlink():
+            raise ExperimentConfigError(f'Seed plan {label} must not traverse a symbolic link')
+        current = current.parent
+
+
 def materialize_seed_plan(config_path: str | Path, destination: str | Path, seeds: list[int]) -> dict:
     if not seeds or len(set(seeds)) != len(seeds):
         raise ExperimentConfigError("seeds must contain at least one unique value")
@@ -61,10 +69,12 @@ def materialize_seed_plan(config_path: str | Path, destination: str | Path, seed
         raise ExperimentConfigError("seeds must be unsigned 32-bit integers")
     seeds = sorted(seeds)
     source = Path(config_path)
+    _reject_symlink_components(source, 'source')
     if source.is_symlink():
         raise ExperimentConfigError('Seed plan source must not be a symbolic link')
     config = load_train_config(source)
     output = Path(destination)
+    _reject_symlink_components(output, 'destination')
     if output.is_symlink():
         raise ExperimentConfigError('Seed plan destination must not be a symbolic link')
     expected_files = {f"seed-{seed:010d}.json" for seed in seeds}

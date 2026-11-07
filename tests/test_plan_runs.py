@@ -301,3 +301,15 @@ class SeedPlanTests(unittest.TestCase):
                 self.skipTest(f'symbolic links unavailable: {error}')
             with self.assertRaisesRegex(ExperimentConfigError, 'source'):
                 materialize_seed_plan(source, Path(directory) / 'plans', [42])
+
+    @unittest.skipUnless(hasattr(os, 'symlink'), 'symbolic links unavailable')
+    def test_materializer_rejects_symlinked_parent_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); source = root / 'source.json'; source.write_text(json.dumps({'env': {'seed': 9}}))
+            real = root / 'real'; real.mkdir(); redirected = root / 'redirected'
+            try:
+                redirected.symlink_to(real, target_is_directory=True)
+            except OSError as error:
+                self.skipTest(f'symbolic links unavailable: {error}')
+            with self.assertRaisesRegex(ExperimentConfigError, 'traverse'):
+                materialize_seed_plan(source, redirected / 'plans', [42])
