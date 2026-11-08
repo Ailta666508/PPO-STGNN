@@ -109,6 +109,7 @@ def materialize_seed_plan(config_path: str | Path, destination: str | Path, seed
 def verify_seed_plan(destination: str | Path) -> dict:
     """Check that a materialized plan still matches each resolved config file."""
     directory = Path(destination)
+    _reject_symlink_components(directory, 'destination')
     try:
         manifest = json.loads((directory / 'seed-plan.json').read_text(encoding='utf-8'))
     except (OSError, json.JSONDecodeError) as error:
